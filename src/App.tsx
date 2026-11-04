@@ -9,6 +9,7 @@ import { BackupSettings, ExportSettings, NightFinishedExtras } from './ui/Backup
 import { Home } from './ui/Home';
 import { ConfigMissing, InstallGuide } from './ui/InstallGuide';
 import { Login } from './ui/Login';
+import { NotifySettings } from './ui/NotifySettings';
 import { NightFlow } from './ui/NightFlow';
 import { Onboarding } from './ui/Onboarding';
 import { Settings } from './ui/Settings';
@@ -76,6 +77,7 @@ function Main() {
               <>
                 <BackupSettings />
                 <ExportSettings />
+                <NotifySettings />
               </>
             }
           />
