@@ -101,3 +101,40 @@ describe('朝の簡易版', () => {
     expect(plan?.window.start).toBe('08:00');
   });
 });
+
+describe('取り組みと保留', () => {
+  it('ステップの並び替えは order を振り直し、追加は末尾に入る', async () => {
+    const { addStep, moveStepUp } = await import('./actions');
+    const d = fresh();
+    await seed(d);
+    await moveStepUp('s2', d);
+    await addStep('p', { title: '仕上げ', minutes: 60, firstStep: '' }, d);
+    const list = (await d.steps.where('trackId').equals('p').toArray()).sort((a, b) => a.order - b.order);
+    expect(list.map((s) => [s.id, s.order])).toEqual([
+      ['s2', 1],
+      ['s1', 2],
+      [list[2].id, 3],
+    ]);
+    expect(list[2].title).toBe('仕上げ');
+  });
+
+  it('終了した取り組みは候補から消え、戻すと出る', async () => {
+    const { archiveTrack } = await import('./actions');
+    const d = fresh();
+    await seed(d);
+    await archiveTrack('h', true, d);
+    const c1 = buildCandidates({ today: '2026-11-04', tracks: await d.tracks.toArray(), steps: [], leftovers: [] });
+    expect(c1.some((c) => c.trackId === 'h')).toBe(false);
+    await archiveTrack('h', false, d);
+    expect((await d.tracks.get('h'))?.archivedAt).toBeUndefined();
+  });
+
+  it('保留から候補に戻す', async () => {
+    const { restoreLeftover } = await import('./actions');
+    const d = fresh();
+    await d.leftovers.put({ id: 'L', fromLifeDate: '2026-10-01', shelvedAt: '2026-10-05T00:00:00Z', item: { id: 'x', trackId: 'h', title: 't', minutes: 30, firstStep: '', status: 'undone' } });
+    await restoreLeftover('L', '2026-11-04', d);
+    expect(await d.leftovers.get('L')).toMatchObject({ fromLifeDate: '2026-11-04' });
+    expect((await d.leftovers.get('L'))?.shelvedAt).toBeUndefined();
+  });
+});
