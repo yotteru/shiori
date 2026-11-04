@@ -3,6 +3,7 @@ import { nowIso, now } from './clock';
 import { db, requestPersistentStorage, updateMeta, type ShioriDB } from './db';
 import { newId } from './id';
 import { jstTime } from './lifeDate';
+import { unshelve } from './leftovers';
 import { formatHm, parseHm } from './schedule';
 import { pushPlanningPing, type SyncResult } from './sync';
 import { JOURNAL_MAX_LENGTH, type Plan, type PlanItem, type Step, type Track } from './types';
@@ -228,4 +229,65 @@ export async function quickStart(today: string, c: Candidate, database: ShioriDB
     await database.plans.add(plan);
     if (c.leftoverId) await database.leftovers.delete(c.leftoverId);
   });
+}
+
+// ---- 取り組みの編集（§3.5） ----
+
+export async function updateTrack(
+  id: string,
+  patch: Partial<Pick<Track, 'name' | 'defaultMinutes' | 'defaultFirstStep'>>,
+  database: ShioriDB = db,
+) {
+  const t = await database.tracks.get(id);
+  if (t) await database.tracks.put({ ...t, ...patch });
+}
+
+export async function archiveTrack(id: string, archived: boolean, database: ShioriDB = db) {
+  const t = await database.tracks.get(id);
+  if (!t) return;
+  const next = { ...t };
+  if (archived) next.archivedAt = nowIso();
+  else delete next.archivedAt;
+  await database.tracks.put(next);
+}
+
+export async function addStep(trackId: string, s: NewStep, database: ShioriDB = db) {
+  await database.transaction('rw', database.steps, async () => {
+    const steps = await database.steps.where('trackId').equals(trackId).toArray();
+    const order = steps.reduce((m, x) => Math.max(m, x.order), 0) + 1;
+    await database.steps.add({ id: newId(), trackId, order, status: 'todo', ...s });
+  });
+}
+
+export async function updateStep(id: string, patch: Partial<NewStep>, database: ShioriDB = db) {
+  const s = await database.steps.get(id);
+  if (s) await database.steps.put({ ...s, ...patch });
+}
+
+export async function deleteStep(id: string, database: ShioriDB = db) {
+  await database.steps.delete(id);
+}
+
+/** ステップをひとつ前へ。order を 1..n に振り直す */
+export async function moveStepUp(id: string, database: ShioriDB = db) {
+  await database.transaction('rw', database.steps, async () => {
+    const s = await database.steps.get(id);
+    if (!s) return;
+    const list = (await database.steps.where('trackId').equals(s.trackId).toArray()).sort((a, b) => a.order - b.order);
+    const i = list.findIndex((x) => x.id === id);
+    if (i <= 0) return;
+    [list[i - 1], list[i]] = [list[i], list[i - 1]];
+    await database.steps.bulkPut(list.map((x, k) => ({ ...x, order: k + 1 })));
+  });
+}
+
+// ---- 保留タブ ----
+
+export async function restoreLeftover(id: string, today: string, database: ShioriDB = db) {
+  const l = await database.leftovers.get(id);
+  if (l) await database.leftovers.put(unshelve(l, today));
+}
+
+export async function deleteLeftover(id: string, database: ShioriDB = db) {
+  await database.leftovers.delete(id);
 }
