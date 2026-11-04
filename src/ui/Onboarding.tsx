@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { completeOnboarding } from '../lib/actions';
+import { RestoreCard } from './Backup';
 import { emptyTrackForm, isTrackFormValid, TrackForm, trackFormToInput } from './TrackForm';
 
 // 初回案内：取り組みを1つ作る（§3.1）
@@ -30,6 +31,7 @@ export function Onboarding() {
       <button className="btn-primary" disabled={!isTrackFormValid(value) || busy} onClick={submit}>
         この取り組みで始める
       </button>
+      <RestoreCard />
     </main>
   );
 }
