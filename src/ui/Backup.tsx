@@ -299,10 +299,18 @@ export function RestoreCard() {
       {supabase &&
         (open ? (
           <form className="stack" onSubmit={restore}>
-            <input type="text" name="username" autoComplete="username" value="しおり バックアップ" readOnly hidden />
             <label className="field">
               <span>合言葉</span>
-              <input className="input" type="password" autoComplete="current-password" value={pass} onChange={(e) => setPass(e.target.value)} />
+              <input
+                className="input"
+                type="password"
+                name="shiori-restore-pass"
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={pass}
+                onChange={(e) => setPass(e.target.value)}
+              />
             </label>
             <button className="btn-primary" type="submit" disabled={busy || !pass}>
               {busy ? '復元中…' : '最新のバックアップから戻す'}

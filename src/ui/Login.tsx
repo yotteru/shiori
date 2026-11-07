@@ -27,11 +27,34 @@ export function Login() {
       <form className="card" onSubmit={submit}>
         <label className="field">
           <span>メールアドレス</span>
-          <input className="input" type="email" autoComplete="username" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          {/* iPad のホーム画面アプリで、自動入力の印があると画面が暗くなり入力できない事例があったため、ただの文字入力欄にする */}
+          <input
+            className="input"
+            type="text"
+            name="shiori-login-id"
+            inputMode="email"
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
         </label>
         <label className="field">
           <span>パスワード</span>
-          <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input
+            className="input"
+            type="password"
+            name="shiori-login-pass"
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </label>
         {error && <p className="error" role="alert">{error}</p>}
         <button className="btn-primary" type="submit" disabled={busy}>
