@@ -39,3 +39,11 @@ export function isDebugNowActive(): boolean {
 export function toDate(value: string | number): Date {
   return new Date(value);
 }
+
+/**
+ * 端末間の同期で「どちらが後か」を比べるための実時刻。
+ * 開発用の日時上書きの影響を受けてはいけないので、ここだけは本物の時計を使う
+ */
+export function realNowIso(): string {
+  return new Date().toISOString();
+}
