@@ -10,7 +10,6 @@ import { InvalidBackupError, replaceAll, type BackupFile } from '../lib/snapshot
 import { supabase } from '../lib/supabase';
 import { afterPassphraseChanged } from '../lib/syncRuntime';
 import { Sheet } from './common';
-import { JoinSyncForm } from './SyncSettings';
 
 // バックアップまわりの画面部品（指示書 §4）
 
@@ -42,8 +41,6 @@ export function PassphraseForm({ submitLabel, onDone }: { submitLabel: string; o
   return (
     <div className="stack" onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && void submit()}>
       {/* iPad（iPadOS 27.2）のホーム画面アプリで、パスワード欄を <form> に入れると入力欄をタップした瞬間に落ちる疑いがあるため、form を使わない */}
-      {/* パスワード管理がどのアカウントの合言葉か分かるように */}
-      <input type="text" name="username" autoComplete="username" value="しおり バックアップ" readOnly hidden />
       <label className="field">
         <span>合言葉（8文字以上）</span>
         <input className="input" type="password" name="new-password" autoComplete="new-password" value={p1} onChange={(e) => setP1(e.target.value)} />
@@ -289,14 +286,7 @@ export function RestoreCard() {
 
   return (
     <div className="card">
-      <span className="label">以前のデータがある場合</span>
-      {supabase && (
-        <>
-          <span className="sub">もう一方の端末で同期を始めているなら、同じ合言葉を入れるとデータがそろいます。</span>
-          <JoinSyncForm submitLabel="もう一方の端末と同期する" />
-          <span className="sub" style={{ marginTop: 8 }}>同期を使っていない場合は、バックアップやファイルから戻せます。</span>
-        </>
-      )}
+      <span className="label">バックアップやファイルから戻す</span>
       {supabase &&
         (open ? (
           <div className="stack" onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && void restore()}>
