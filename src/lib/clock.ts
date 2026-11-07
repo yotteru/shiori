@@ -2,6 +2,13 @@
 // new Date() を直接使ってよいのはこのファイルだけ。
 
 let override: Date | null = null;
+const listeners = new Set<() => void>();
+
+/** 上書きの設定・解除を購読する（画面の再描画用） */
+export function onClockChange(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
 
 /** 現在日時。開発用の上書き（Meta.debugNow）があればそれを返す */
 export function now(): Date {
@@ -17,10 +24,11 @@ export function nowIso(): string {
 export function setDebugNow(iso: string | null | undefined): void {
   if (!iso) {
     override = null;
-    return;
+  } else {
+    const d = new Date(iso);
+    override = Number.isNaN(d.getTime()) ? null : d;
   }
-  const d = new Date(iso);
-  override = Number.isNaN(d.getTime()) ? null : d;
+  listeners.forEach((fn) => fn());
 }
 
 export function isDebugNowActive(): boolean {
