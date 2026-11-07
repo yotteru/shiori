@@ -1,3 +1,5 @@
+import { InputTestLink } from './InputTest';
+
 // Safari のタブで開いたときは入力させず、ホーム画面への追加だけを案内する（§3.1）
 export function InstallGuide() {
   return (
@@ -16,6 +18,7 @@ export function InstallGuide() {
           ブラウザのタブのままだと、入力したデータが端末から消えることがあるため、ここでは入力できません。
         </p>
       </div>
+      <InputTestLink />
     </main>
   );
 }
