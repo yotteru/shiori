@@ -10,6 +10,8 @@ import { ConfigMissing, InstallGuide } from './ui/InstallGuide';
 import { Login } from './ui/Login';
 import { NightFlow } from './ui/NightFlow';
 import { Onboarding } from './ui/Onboarding';
+import { Settings } from './ui/Settings';
+import { Tracks } from './ui/Tracks';
 
 // 開発サーバー（npm run dev）のときだけ、ホーム画面判定とログインを省略できる
 const DEV = import.meta.env.DEV;
@@ -53,12 +55,39 @@ function DebugBanner() {
   return <div className="debug-banner">テスト中：日時を上書きしています</div>;
 }
 
+type View = 'home' | 'night' | 'tracks' | 'settings';
+
 function Main() {
-  const [view, setView] = useState<'home' | 'night'>('home');
+  const [view, setView] = useState<View>('home');
+  const go = (v: View) => {
+    setView(v);
+    window.scrollTo(0, 0);
+  };
   return (
-    <main className="screen">
-      {view === 'home' && <Home onStartNight={() => setView('night')} />}
-      {view === 'night' && <NightFlow onClose={() => setView('home')} />}
-    </main>
+    <>
+      <main className="screen">
+        {view === 'home' && <Home onStartNight={() => go('night')} />}
+        {view === 'night' && <NightFlow onClose={() => go('home')} />}
+        {view === 'tracks' && <Tracks />}
+        {view === 'settings' && <Settings />}
+      </main>
+      {view !== 'night' && (
+        <nav className="tabbar" aria-label="画面の切り替え">
+          <div>
+            {(
+              [
+                ['home', 'しおり'],
+                ['tracks', '取り組み'],
+                ['settings', '設定'],
+              ] as const
+            ).map(([v, label]) => (
+              <button key={v} aria-current={view === v ? 'page' : undefined} onClick={() => go(v)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
+    </>
   );
 }

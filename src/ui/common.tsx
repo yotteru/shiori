@@ -17,8 +17,8 @@ export function MinutesSelect({ value, onChange, id }: { value: number; onChange
 }
 
 /** 時刻の選択。iPhone のネイティブ時刻入力ははみ出すので <select> で代替する（§11） */
-export function TimeSelect({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
-  const opts = timeOptions();
+export function TimeSelect({ value, onChange, label, step = 15 }: { value: string; onChange: (v: string) => void; label: string; step?: number }) {
+  const opts = timeOptions(step);
   const list = opts.includes(value) ? opts : [...opts, value].sort();
   return (
     <select className="select mono" aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
