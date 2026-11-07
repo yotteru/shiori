@@ -46,10 +46,19 @@ export function JoinSyncForm({ onDone, submitLabel = 'この端末も同期す�
   };
   return (
     <form className="stack" onSubmit={submit}>
-      <input type="text" name="username" autoComplete="username" value="しおり バックアップ" readOnly hidden />
       <label className="field">
         <span>合言葉（もう一方の端末で設定したもの）</span>
-        <input className="input" type="password" autoComplete="current-password" value={pass} onChange={(e) => setPass(e.target.value)} />
+        {/* iPad で入力欄をタップすると暗くなる事例への対策として、自動入力の印を付けない */}
+        <input
+          className="input"
+          type="password"
+          name="shiori-sync-pass"
+          autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          value={pass}
+          onChange={(e) => setPass(e.target.value)}
+        />
       </label>
       <button className="btn-primary" type="submit" disabled={busy || !pass}>
         {busy ? '同期中…' : submitLabel}
