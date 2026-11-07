@@ -1,6 +1,6 @@
 # CLAUDE_CODE_INSTRUCTIONS.md — 自己管理アプリ v0（仮称：しおり）実装指示書
 
-最終更新：2026-11-05（朝の簡易版の候補順を要件メモに合わせて修正。画面案との差分を明記）
+最終更新：2026-11-07（iPhone と iPad の同期を追加。§4.3・§5.5。§9 から「複数端末の同時利用」を外す）
 正本：要件メモ（Claude Docs「自己管理アプリ 要件メモ」）。本書と矛盾する場合は、作業を止めてユーザーに確認すること。
 
 ---
@@ -235,6 +235,17 @@ interface Draft { key: string; value: string; updatedAt: string } // 入力途�
 - 読み込み：ファイル選択 → 形式と版番号を検証 → **読み込み直前に今のデータを自動で書き出す** → 確認ダイアログ → 置き換え
 - 将来の Obsidian 連携（v0では作らない）のため、ジャーナル・済の記録は生活日をキーに持ち、Markdown に1日1ファイルで変換できる形を保つこと
 
+### 4.3 iPhone と iPad の同期（2026-11-07 追加。要件メモ「複数端末の同期」）
+
+- 同期するもの：取り組み・ステップ・計画・ジャーナル・やり残し。同期しないもの：下書き・Meta（書き出し日時・日時の上書きなど）・鍵
+- 暗号化：自動バックアップと同じ合言葉・同じ鍵（§4.1）で1件ずつ AES-GCM で暗号化して `encrypted_records` に置く。サーバーは中身を読めない
+- 2台目の端末：初回案内または設定で、同じ合言葉を入れて加わる。`sync_keys` の salt と確認用の暗号文で合言葉を確かめる
+- どちらを残すか：項目ごとに、端末で変更した実時刻（`updatedAt`）が新しい方。計画は行き先ごとに比べる（iPhone で A に済、iPad で B に済 → 両方残る）
+- 実時刻の例外：同期の判定は開発用の日時上書きの影響を受けないよう、`clock.realNowIso()` を使う
+- タイミング：開いた時・アプリに戻った時・オンラインに戻った時に取り込み、変更を書いたら約1.5秒後に送る
+- 合言葉を変えたら、新しい鍵で全件を送り直す。もう一方の端末は「新しい合言葉の入力待ち」になる
+- 実装：`src/lib/syncCore.ts`（決まりごと）、`syncEngine.ts`（取り込み・送信）、`syncSupabase.ts`、`db.ts` のミドルウェア（updatedAt と送信待ち `outbox` の記録）
+
 ---
 
 ## 5. Supabase
@@ -298,7 +309,12 @@ public.check_and_send_plan_reminder()           -- security definer、pg_cron �
 
 `public.send_test_notification()`：ログイン中の本人だけが RPC で呼べる関数。判定を飛ばして同じ文面に「（テスト）」を付けて送る。設定画面のボタンから呼ぶ。
 
-### 5.4 秘密値の扱い
+### 5.4 同期のテーブル（`0003_sync.sql`）
+
+- `encrypted_records (user_id, kind, record_id, ciphertext, iv, deleted, client_updated_at, server_updated_at)`、`sync_keys (user_id, salt, check_ciphertext, check_iv)`。どちらも RLS で本人の行だけ
+- `push_records(jsonb)`（security invoker）：`client_updated_at` が古い変更は受け付けず、サーバーの行を返す。同じ時刻は上書き（合言葉変更時の送り直し）
+
+### 5.5 秘密値の扱い
 
 LINE のトークン、Supabase の service_role キーなどの秘密値は、**チャットやリポジトリに書かせない**。ユーザーが Supabase ダッシュボード（Vault）で直接登録する手順を README に書く。クライアントに置いてよいのは Supabase の URL と anon（publishable）キーだけ。
 
@@ -351,7 +367,7 @@ LINE のトークン、Supabase の service_role キーなどの秘密値は、*
 
 ## 9. やらないこと（v0）
 
-全体のダッシュボード／数値型の取り組み／ヘルスケア・スクリーンタイムの自動取得／AIによる要約・フィードバック／仕事・睡眠の細かい時間管理／複数端末の同時利用／Obsidian 書き出し／通知時刻の設定画面（23:00 固定。変更は SQL で行う）／ストリーク・バッジ類
+全体のダッシュボード／数値型の取り組み／ヘルスケア・スクリーンタイムの自動取得／AIによる要約・フィードバック／仕事・睡眠の細かい時間管理／Obsidian 書き出し／通知時刻の設定画面（23:00 固定。変更は SQL で行う）／ストリーク・バッジ類
 
 ---
 

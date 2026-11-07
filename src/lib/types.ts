@@ -14,6 +14,8 @@ export interface Track {
   defaultFirstStep?: string;
   /** 前回の続き（済をつけたときの「次はここから」） */
   lastNote?: { text: string; at: string };
+  /** 同期用：最後に変更した実時刻（自動で付く） */
+  updatedAt?: string;
 }
 
 /** プロジェクト型のステップ（地図のマス） */
@@ -26,6 +28,7 @@ export interface Step {
   firstStep: string;
   status: 'todo' | 'done';
   doneAt?: string;
+  updatedAt?: string;
 }
 
 /** 計画（1生活日に1件） */
@@ -38,6 +41,7 @@ export interface Plan {
   source: 'night' | 'morning-quick';
   /** 並び順 = 実行順 */
   items: PlanItem[];
+  updatedAt?: string;
 }
 
 export interface PlanItem {
@@ -52,6 +56,8 @@ export interface PlanItem {
   nextNote?: string;
   /** 済をつける前の Track.lastNote（取り消しで元に戻すため。null = なかった） */
   prevLastNote?: { text: string; at: string } | null;
+  /** 同期用：行き先ごとに後から変えた方を残すための実時刻 */
+  updatedAt?: string;
 }
 
 /** ジャーナル（1生活日に1件） */
@@ -67,6 +73,7 @@ export interface Leftover {
   fromLifeDate: string;
   item: PlanItem;
   shelvedAt?: string;
+  updatedAt?: string;
 }
 
 export interface Meta {
@@ -78,6 +85,11 @@ export interface Meta {
   onboarded: boolean;
   /** Supabase へ送れなかった「計画した日付」。次回保存時に再送する */
   pendingPings?: string[];
+  /** 端末間の同期を使っているか */
+  syncEnabled?: boolean;
+  /** 同期で最後に取り込んだサーバー時刻 */
+  syncCursor?: string;
+  lastSyncAt?: string;
 }
 
 /** 入力途中の自動保存 */

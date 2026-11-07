@@ -8,7 +8,9 @@ import { exportNow, readBackupFile, shouldRemindExport } from '../lib/exportFile
 import { diffDays, jstTime, lifeDate } from '../lib/lifeDate';
 import { InvalidBackupError, replaceAll, type BackupFile } from '../lib/snapshot';
 import { supabase } from '../lib/supabase';
+import { afterPassphraseChanged } from '../lib/syncRuntime';
 import { Sheet } from './common';
+import { JoinSyncForm } from './SyncSettings';
 
 // バックアップまわりの画面部品（指示書 §4）
 
@@ -30,6 +32,8 @@ export function PassphraseForm({ submitLabel, onDone }: { submitLabel: string; o
     e.preventDefault();
     setBusy(true);
     await setPassphrase(p1);
+    // 同期中なら、新しい合言葉で全件を送り直す（もう一方の端末は新しい合言葉の入力待ちになる）
+    await afterPassphraseChanged().catch(() => {});
     setP1('');
     setP2('');
     setBusy(false);
@@ -285,6 +289,13 @@ export function RestoreCard() {
   return (
     <div className="card">
       <span className="label">以前のデータがある場合</span>
+      {supabase && (
+        <>
+          <span className="sub">もう一方の端末で同期を始めているなら、同じ合言葉を入れるとデータがそろいます。</span>
+          <JoinSyncForm submitLabel="もう一方の端末と同期する" />
+          <span className="sub" style={{ marginTop: 8 }}>同期を使っていない場合は、バックアップやファイルから戻せます。</span>
+        </>
+      )}
       {supabase &&
         (open ? (
           <form className="stack" onSubmit={restore}>

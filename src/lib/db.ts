@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
-import { setDebugNow } from './clock';
+import { realNowIso, setDebugNow } from './clock';
+import { KIND_BY_TABLE, recordKey, stampPlanItems, type SyncKind } from './syncCore';
 import {
   SCHEMA_VERSION,
   type Draft,
@@ -10,6 +11,30 @@ import {
   type Step,
   type Track,
 } from './types';
+
+/** 同期で送る必要がある変更（端末ごと）。key = 'kind:id' */
+export interface OutboxEntry {
+  key: string;
+  kind: SyncKind;
+  id: string;
+  /** 変更した実時刻。削除のときはこれがサーバーでの比較に使われる */
+  at: string;
+  deleted: boolean;
+}
+
+/** サーバーから来た変更を書くときの印。この印がある書き込みは送り返さない */
+export const REMOTE = '__remote';
+const remoteDeletes = new Set<string>();
+/** サーバーから来た削除を、送り返さずに消すための登録 */
+export function markRemoteDelete(table: string, id: string) {
+  remoteDeletes.add(`${table}:${id}`);
+}
+
+/** 同期の予約（変更を書いたら呼ばれる）。syncEngine が差し替える */
+let onLocalChange: () => void = () => {};
+export function setOnLocalChange(fn: () => void) {
+  onLocalChange = fn;
+}
 
 export interface BackupKeyRecord {
   id: 'backup-key';
@@ -30,6 +55,8 @@ export class ShioriDB extends Dexie {
   drafts!: Table<Draft, string>;
   /** バックアップ用の鍵（取り出し不可の CryptoKey）と salt。合言葉そのものは保存しない */
   secrets!: Table<BackupKeyRecord, string>;
+  /** 同期で送る必要がある変更 */
+  outbox!: Table<OutboxEntry, string>;
 
   constructor(name = 'shiori') {
     super(name);
@@ -44,6 +71,8 @@ export class ShioriDB extends Dexie {
     });
     // IndexedDB の器の版（データ形式の schemaVersion とは別）
     this.version(2).stores({ secrets: 'id' });
+    this.version(3).stores({ outbox: 'key' });
+    installSyncMiddleware(this);
   }
 }
 
@@ -102,4 +131,74 @@ export async function requestPersistentStorage(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * 同期の下ごしらえ（Dexie のミドルウェア）。
+ * 端末での書き込みには実時刻の updatedAt を付け、送る必要がある変更を outbox に残す。
+ * サーバーから来た書き込み（REMOTE の印つき・markRemoteDelete 済み）は送り返さない
+ */
+function installSyncMiddleware(database: ShioriDB) {
+  database.use({
+    stack: 'dbcore',
+    name: 'shiori-sync',
+    create(down) {
+      return {
+        ...down,
+        table(tableName) {
+          const table = down.table(tableName);
+          const kind = KIND_BY_TABLE[tableName];
+          if (!kind) return table;
+          const pk = table.schema.primaryKey;
+          const keyOf = (v: unknown) => String(pk.extractKey!(v));
+          return {
+            ...table,
+            async mutate(req) {
+              const changed: OutboxEntry[] = [];
+              const at = realNowIso();
+              if (req.type === 'add' || req.type === 'put') {
+                const keys = req.values.map(keyOf);
+                const olds = kind === 'plan' ? await table.getMany({ trans: req.trans, keys }) : [];
+                const values = req.values.map((v, i) => {
+                  const obj = { ...(v as Record<string, unknown>) };
+                  if (obj[REMOTE]) {
+                    delete obj[REMOTE];
+                    return obj;
+                  }
+                  let next: Record<string, unknown> = { ...obj, updatedAt: at };
+                  if (kind === 'plan') next = stampPlanItems(olds[i], next as never, at) as never;
+                  changed.push({ key: recordKey(kind, keys[i]), kind, id: keys[i], at, deleted: false });
+                  return next;
+                });
+                req = { ...req, values };
+              } else if (req.type === 'delete') {
+                for (const k of req.keys) {
+                  const id = String(k);
+                  if (remoteDeletes.delete(`${tableName}:${id}`)) continue;
+                  changed.push({ key: recordKey(kind, id), kind, id, at, deleted: true });
+                }
+              } else if (req.type === 'deleteRange') {
+                // clear() など。消える行をすべて削除として記録する
+                const keys = await table.query({ trans: req.trans, values: false, query: { index: pk, range: req.range } });
+                for (const k of keys.result) {
+                  const id = String(k);
+                  changed.push({ key: recordKey(kind, id), kind, id, at, deleted: true });
+                }
+              }
+              const res = await table.mutate(req);
+              if (changed.length) {
+                const trans = req.trans as unknown as IDBTransaction;
+                const write = () => {
+                  database.outbox.bulkPut(changed).then(() => onLocalChange(), () => {});
+                };
+                if (typeof trans.addEventListener === 'function') trans.addEventListener('complete', write);
+                else write();
+              }
+              return res;
+            },
+          };
+        },
+      };
+    },
+  });
 }
