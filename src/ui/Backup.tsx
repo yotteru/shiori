@@ -28,8 +28,8 @@ export function PassphraseForm({ submitLabel, onDone }: { submitLabel: string; o
   const [busy, setBusy] = useState(false);
   const tooShort = p1.length > 0 && p1.length < 8;
   const mismatch = p2.length > 0 && p1 !== p2;
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async () => {
+    if (busy || p1.length < 8 || p1 !== p2) return;
     setBusy(true);
     await setPassphrase(p1);
     // 同期中なら、新しい合言葉で全件を送り直す（もう一方の端末は新しい合言葉の入力待ちになる）
@@ -40,7 +40,8 @@ export function PassphraseForm({ submitLabel, onDone }: { submitLabel: string; o
     onDone();
   };
   return (
-    <form className="stack" onSubmit={submit}>
+    <div className="stack" onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && void submit()}>
+      {/* iPad（iPadOS 27.2）のホーム画面アプリで、パスワード欄を <form> に入れると入力欄をタップした瞬間に落ちる疑いがあるため、form を使わない */}
       {/* パスワード管理がどのアカウントの合言葉か分かるように */}
       <input type="text" name="username" autoComplete="username" value="しおり バックアップ" readOnly hidden />
       <label className="field">
@@ -54,10 +55,10 @@ export function PassphraseForm({ submitLabel, onDone }: { submitLabel: string; o
       {tooShort && <span className="error">8文字以上にしてください</span>}
       {mismatch && <span className="error">2つの合言葉が一致しません</span>}
       <span className="small muted">合言葉を忘れるとバックアップは開けません。パスワード管理に保存しておいてください。</span>
-      <button className="btn-primary" type="submit" disabled={busy || p1.length < 8 || p1 !== p2}>
+      <button className="btn-primary" type="button" disabled={busy || p1.length < 8 || p1 !== p2} onClick={() => void submit()}>
         {busy ? '準備中…' : submitLabel}
       </button>
-    </form>
+    </div>
   );
 }
 
@@ -267,8 +268,8 @@ export function RestoreCard() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
 
-  const restore = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const restore = async () => {
+    if (busy || !pass) return;
     setBusy(true);
     setMsg('');
     try {
@@ -298,7 +299,7 @@ export function RestoreCard() {
       )}
       {supabase &&
         (open ? (
-          <form className="stack" onSubmit={restore}>
+          <div className="stack" onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && void restore()}>
             <label className="field">
               <span>合言葉</span>
               <input
@@ -312,10 +313,10 @@ export function RestoreCard() {
                 onChange={(e) => setPass(e.target.value)}
               />
             </label>
-            <button className="btn-primary" type="submit" disabled={busy || !pass}>
+            <button className="btn-primary" type="button" disabled={busy || !pass} onClick={() => void restore()}>
               {busy ? '復元中…' : '最新のバックアップから戻す'}
             </button>
-          </form>
+          </div>
         ) : (
           <button className="btn" onClick={() => setOpen(true)}>
             バックアップから戻す

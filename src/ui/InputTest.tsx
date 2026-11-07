@@ -50,6 +50,25 @@ const CASES: { id: string; label: string; render: (on: Handlers) => ReactNode }[
   { id: '4', label: 'しおりの見た目の入力欄', render: (h) => <input type="text" className="input" {...h} /> },
   { id: '5', label: 'しおりの見た目＋端末の標準フォント', render: (h) => <input type="text" className="input" style={{ fontFamily: 'system-ui, sans-serif' }} {...h} /> },
   { id: '6', label: '入力欄を label で囲んだもの', render: (h) => <label className="field"><span>見出し</span><input type="text" className="input" {...h} /></label> },
+  {
+    id: '7',
+    label: 'form の中の文字欄（パスワード欄あり・旧ログイン画面と同じ形）',
+    render: (h) => (
+      <form className="stack" onSubmit={(e) => e.preventDefault()}>
+        <input type="text" className="input" {...h} />
+        <input type="password" className="input" placeholder="（こちらはタップしなくてよい）" />
+      </form>
+    ),
+  },
+  {
+    id: '8',
+    label: 'form の中の文字欄（パスワード欄なし）',
+    render: (h) => (
+      <form className="stack" onSubmit={(e) => e.preventDefault()}>
+        <input type="text" className="input" {...h} />
+      </form>
+    ),
+  },
 ];
 
 interface Handlers {

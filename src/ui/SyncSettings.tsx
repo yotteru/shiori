@@ -28,10 +28,9 @@ export function JoinSyncForm({ onDone, submitLabel = 'この端末も同期す�
   const [pass, setPass] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async () => {
     const server = supabaseSyncServer();
-    if (!server) return;
+    if (!server || busy || !pass) return;
     setBusy(true);
     setMsg('');
     try {
@@ -45,7 +44,8 @@ export function JoinSyncForm({ onDone, submitLabel = 'この端末も同期す�
     }
   };
   return (
-    <form className="stack" onSubmit={submit}>
+    <div className="stack" onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && void submit()}>
+      {/* iPad（iPadOS 27.2）のホーム画面アプリで、パスワード欄を <form> に入れると入力欄をタップした瞬間に落ちる疑いがあるため、form を使わない */}
       <label className="field">
         <span>合言葉（もう一方の端末で設定したもの）</span>
         {/* iPad で入力欄をタップすると暗くなる事例への対策として、自動入力の印を付けない */}
@@ -60,11 +60,11 @@ export function JoinSyncForm({ onDone, submitLabel = 'この端末も同期す�
           onChange={(e) => setPass(e.target.value)}
         />
       </label>
-      <button className="btn-primary" type="submit" disabled={busy || !pass}>
+      <button className="btn-primary" type="button" disabled={busy || !pass} onClick={() => void submit()}>
         {busy ? '同期中…' : submitLabel}
       </button>
       {msg && <span className="error">{msg}</span>}
-    </form>
+    </div>
   );
 }
 
