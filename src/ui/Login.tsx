@@ -9,9 +9,8 @@ export function Login() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase) return;
+  const submit = async () => {
+    if (!supabase || busy || !email.trim() || !password) return;
     setBusy(true);
     setError('');
     const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
@@ -25,7 +24,8 @@ export function Login() {
         <h1 className="title">しおり</h1>
         <span className="sub">ログイン</span>
       </div>
-      <form className="card" onSubmit={submit}>
+      {/* iPad（iPadOS 27.2）のホーム画面アプリで、パスワード欄を <form> に入れると入力欄をタップした瞬間に落ちる疑いがあるため、form を使わない */}
+      <div className="card" onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && void submit()}>
         <label className="field">
           <span>メールアドレス</span>
           {/* iPad のホーム画面アプリで、自動入力の印があると画面が暗くなり入力できない事例があったため、ただの文字入力欄にする */}
@@ -58,10 +58,10 @@ export function Login() {
           />
         </label>
         {error && <p className="error" role="alert">{error}</p>}
-        <button className="btn-primary" type="submit" disabled={busy}>
+        <button className="btn-primary" type="button" disabled={busy} onClick={() => void submit()}>
           {busy ? 'ログイン中…' : 'ログイン'}
         </button>
-      </form>
+      </div>
       <InputTestLink />
     </main>
   );
