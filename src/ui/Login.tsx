@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { InputTestLink } from './InputTest';
 
 // ログイン（新規登録ボタンは置かない。§3.1）
 export function Login() {
@@ -61,6 +62,7 @@ export function Login() {
           {busy ? 'ログイン中…' : 'ログイン'}
         </button>
       </form>
+      <InputTestLink />
     </main>
   );
 }
