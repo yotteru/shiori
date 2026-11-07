@@ -7,6 +7,7 @@ import { isStandalone } from './lib/standalone';
 import { supabase } from './lib/supabase';
 import { BackupSettings, ExportSettings, NightFinishedExtras } from './ui/Backup';
 import { Home } from './ui/Home';
+import { InputTest, isInputTestOpen } from './ui/InputTest';
 import { ConfigMissing, InstallGuide } from './ui/InstallGuide';
 import { Login } from './ui/Login';
 import { NotifySettings } from './ui/NotifySettings';
@@ -35,6 +36,8 @@ export function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  // 入力欄の不具合調査（ホーム画面・Safari のタブのどちらでも開ける）
+  if (isInputTestOpen()) return <InputTest />;
   if (!DEV && !isStandalone()) return <InstallGuide />;
   if (!booted || session === undefined) return null;
   if (!supabase && !DEV) return <ConfigMissing />;
