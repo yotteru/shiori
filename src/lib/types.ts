@@ -50,6 +50,8 @@ export interface PlanItem {
   status: 'planned' | 'done' | 'undone';
   doneAt?: string;
   nextNote?: string;
+  /** 済をつける前の Track.lastNote（取り消しで元に戻すため。null = なかった） */
+  prevLastNote?: { text: string; at: string } | null;
 }
 
 /** ジャーナル（1生活日に1件） */
@@ -74,6 +76,8 @@ export interface Meta {
   lastBackupAt?: string;
   debugNow?: string;
   onboarded: boolean;
+  /** Supabase へ送れなかった「計画した日付」。次回保存時に再送する */
+  pendingPings?: string[];
 }
 
 /** 入力途中の自動保存 */
