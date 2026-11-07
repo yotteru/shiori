@@ -61,6 +61,23 @@ const CASES: { id: string; label: string; render: (on: Handlers) => ReactNode }[
     ),
   },
   {
+    id: '9',
+    label: 'form なしで文字欄とパスワード欄が並ぶ（前回のログイン画面と同じ形）',
+    render: (h) => (
+      <div className="stack">
+        <label className="field">
+          <span>メールアドレス</span>
+          <input className="input" type="text" name="shiori-login-id" inputMode="email" autoComplete="off" {...h} />
+        </label>
+        <label className="field">
+          <span>パスワード</span>
+          <input className="input" type="password" name="shiori-login-pass" autoComplete="off" placeholder="（こちらはタップしなくてよい）" />
+        </label>
+        <button className="btn-primary" type="button">ログイン</button>
+      </div>
+    ),
+  },
+  {
     id: '8',
     label: 'form の中の文字欄（パスワード欄なし）',
     render: (h) => (
