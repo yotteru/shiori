@@ -1,0 +1,16 @@
+:root {
+  --bg: #f4f5f7;
+  --text: #15181d;
+  --muted: #5b6470;
+  --done: #0f766e;
+  --next: #ea580c;
+  --card-strong: #15181d;
+  --line: #c4cad2;
+  --font: 'Noto Sans JP', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); }
+.screen { max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; }
+.title { font-size: 24px; font-weight: 700; margin: 0; }
+.muted { color: var(--muted); font-size: 13px; }
