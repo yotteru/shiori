@@ -4,7 +4,7 @@
 
 - 実装指示書：[docs/CLAUDE_CODE_INSTRUCTIONS.md](docs/CLAUDE_CODE_INSTRUCTIONS.md)
 - 公開URL：https://yotteru.github.io/shiori/
-- データは iPhone の中が正本。サーバー（Supabase）に送るのは「計画した日付」と「暗号化したバックアップ」だけです。
+- データは各端末の中にあり、iPhone と iPad の同期を使うと、端末内で暗号化したデータだけがサーバー（Supabase）を通ります。サーバーからは中身を読めません。
 
 ## 検証期間（事前登録）
 
@@ -41,6 +41,7 @@
 
 1. [supabase/migrations/0001_tables_and_rls.sql](supabase/migrations/0001_tables_and_rls.sql)
 2. [supabase/migrations/0002_plan_reminder.sql](supabase/migrations/0002_plan_reminder.sql)
+3. [supabase/migrations/0003_sync.sql](supabase/migrations/0003_sync.sql)（iPhone と iPad の同期）
 
 実行後、次の SQL でジョブが登録されていることを確認します。
 
@@ -81,6 +82,13 @@ update public.notification_state set notify_time = '23:00' where id = 1;
 ```
 
 明日のルートを組み済みの日は届きません。
+
+### 8. iPad でも使う（同期）
+
+1. **iPhone**：設定 →「iPhone と iPad の同期」→ **同期を始める**（合言葉が未設定なら、ここで決める）
+2. **iPad**：Safari で公開URLを開き、ホーム画面に追加 → 同じメールアドレスとパスワードでログイン
+3. iPad の初回案内の下にある「**もう一方の端末と同期する**」に、iPhone と同じ合言葉を入れる
+4. 以後は、開いた時と変更のたびに自動で同期します（設定の「今すぐ同期」でも可）
 
 ## 使い方の要点
 

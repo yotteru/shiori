@@ -5,6 +5,10 @@ import { ShioriDB } from './db';
 import { exportFileName, shouldRemindExport } from './exportFile';
 import { InvalidBackupError, parseBackupFile, replaceAll, takeSnapshot, toBackupFile } from './snapshot';
 
+// 読み込んだデータには同期用の updatedAt（実時刻）が付き直すので、それ以外を比べる
+const strip = (v: unknown): unknown =>
+  JSON.parse(JSON.stringify(v, (k, x) => (k === 'updatedAt' ? undefined : x)));
+
 let n = 0;
 const fresh = () => new ShioriDB(`backup-${n++}`);
 
@@ -50,7 +54,7 @@ describe('暗号化（受け入れテスト 5）', () => {
     await restoreFromRow(row!, '正しい合言葉', dst);
     const a = await takeSnapshot(src);
     const b = await takeSnapshot(dst);
-    expect(b).toEqual(a);
+    expect(strip(b)).toEqual(strip(a));
     expect(await hasBackupKey(dst)).toBe(true);
   });
 });
@@ -65,7 +69,7 @@ describe('書き出しと読み込み（受け入れテスト 6）', () => {
     const dst = fresh();
     await dst.tracks.put({ id: 'old', name: '消える', type: 'habit', createdAt: '2026-11-01T00:00:00Z' });
     await replaceAll(file, dst);
-    expect(await takeSnapshot(dst)).toEqual(await takeSnapshot(src));
+    expect(strip(await takeSnapshot(dst))).toEqual(strip(await takeSnapshot(src)));
     expect((await dst.meta.get('meta'))?.onboarded).toBe(true);
   });
 

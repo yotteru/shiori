@@ -13,6 +13,8 @@ import { NotifySettings } from './ui/NotifySettings';
 import { NightFlow } from './ui/NightFlow';
 import { Onboarding } from './ui/Onboarding';
 import { Settings } from './ui/Settings';
+import { SyncSettings } from './ui/SyncSettings';
+import { scheduleSync } from './lib/syncRuntime';
 import { Tracks } from './ui/Tracks';
 
 // 開発サーバー（npm run dev）のときだけ、ホーム画面判定とログインを省略できる
@@ -42,6 +44,8 @@ export function App() {
 
 function Signed() {
   const meta = useLive(() => getMeta(), []);
+  // ログインできたら（=アプリを開いたら）まず取り込む
+  useEffect(() => scheduleSync(0), []);
   if (!meta) return null;
   return (
     <>
@@ -75,6 +79,7 @@ function Main() {
           <Settings
             sections={
               <>
+                <SyncSettings />
                 <BackupSettings />
                 <ExportSettings />
                 <NotifySettings />
