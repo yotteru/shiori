@@ -130,4 +130,74 @@ do $$ begin
   assert not exists (select 1 from pg_policies where schemaname = 'public' and 'anon' = any(roles)), 'anon 向けポリシーがない';
 end $$;
 
+-- 4. 同期（0003）：後から変えた方だけ受け付け、本人の行しか読み書きできない
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare n int;
+begin
+  -- 新しい行
+  select count(*) into n from public.push_records(
+    '[{"kind":"track","record_id":"t1","ciphertext":"c1","iv":"i","deleted":false,"client_updated_at":"2026-11-07T10:00:00Z"}]'::jsonb);
+  assert n = 0, '新しい行は受け付ける';
+  -- 古い変更は受け付けず、サーバーの行を返す
+  select count(*) into n from public.push_records(
+    '[{"kind":"track","record_id":"t1","ciphertext":"old","iv":"i","deleted":false,"client_updated_at":"2026-11-07T09:00:00Z"}]'::jsonb);
+  assert n = 1, '古い変更は返される';
+  assert (select ciphertext from public.encrypted_records where record_id = 't1') = 'c1', '古い変更で上書きしない';
+  -- 新しい変更は受け付ける（削除も）
+  perform public.push_records(
+    '[{"kind":"track","record_id":"t1","ciphertext":"c2","iv":"i","deleted":true,"client_updated_at":"2026-11-07T11:00:00Z"}]'::jsonb);
+  assert (select deleted from public.encrypted_records where record_id = 't1'), '削除を受け付ける';
+  -- 同じ時刻は上書き（合言葉を変えたときの送り直し）
+  perform public.push_records(
+    '[{"kind":"track","record_id":"t1","ciphertext":"c3","iv":"i","deleted":true,"client_updated_at":"2026-11-07T11:00:00Z"}]'::jsonb);
+  assert (select ciphertext from public.encrypted_records where record_id = 't1') = 'c3', '同じ時刻は上書き';
+  -- 種類の制限
+  begin
+    perform public.push_records('[{"kind":"meta","record_id":"x","ciphertext":"c","iv":"i","client_updated_at":"2026-11-07T11:00:00Z"}]'::jsonb);
+    raise exception 'FAIL: 決められていない種類を受け付けた';
+  exception when check_violation then null;
+  end;
+  insert into public.sync_keys (salt, check_ciphertext, check_iv) values ('s', 'c', 'i');
+end $$;
+
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  assert (select count(*) from public.encrypted_records) = 0, '他人の encrypted_records は見えない';
+  assert (select count(*) from public.sync_keys) = 0, '他人の sync_keys は見えない';
+  -- 他人と同じ record_id でも別の行になる
+  perform public.push_records(
+    '[{"kind":"track","record_id":"t1","ciphertext":"other","iv":"i","deleted":false,"client_updated_at":"2020-01-01T00:00:00Z"}]'::jsonb);
+  begin
+    insert into public.encrypted_records (user_id, kind, record_id, ciphertext, iv, client_updated_at)
+      values ('11111111-1111-1111-1111-111111111111', 'track', 'x', 'c', 'i', now());
+    raise exception 'FAIL: 他人の行を書けてしまった';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+
+set role anon;
+reset request.jwt.claim.sub;
+do $$ begin
+  begin
+    perform public.push_records('[]'::jsonb);
+    raise exception 'FAIL: anon が push_records を呼べた';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform * from public.sync_keys;
+    raise exception 'FAIL: anon が sync_keys を読めた';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+
+do $$ begin
+  assert (select ciphertext from public.encrypted_records where user_id = '11111111-1111-1111-1111-111111111111' and record_id = 't1') = 'c3',
+    '他人の送信で本人の行は変わらない';
+  assert not exists (select 1 from pg_policies where schemaname = 'public' and 'anon' = any(roles)), 'anon 向けポリシーがない';
+end $$;
+
 select 'ALL SQL TESTS PASSED';
