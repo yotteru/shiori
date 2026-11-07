@@ -5,9 +5,11 @@ import { isDebugNowActive } from './lib/clock';
 import { getMeta, loadClockOverride } from './lib/db';
 import { isStandalone } from './lib/standalone';
 import { supabase } from './lib/supabase';
+import { BackupSettings, ExportSettings, NightFinishedExtras } from './ui/Backup';
 import { Home } from './ui/Home';
 import { ConfigMissing, InstallGuide } from './ui/InstallGuide';
 import { Login } from './ui/Login';
+import { NotifySettings } from './ui/NotifySettings';
 import { NightFlow } from './ui/NightFlow';
 import { Onboarding } from './ui/Onboarding';
 import { Settings } from './ui/Settings';
@@ -67,9 +69,19 @@ function Main() {
     <>
       <main className="screen">
         {view === 'home' && <Home onStartNight={() => go('night')} />}
-        {view === 'night' && <NightFlow onClose={() => go('home')} />}
+        {view === 'night' && <NightFlow onClose={() => go('home')} finishedExtras={() => <NightFinishedExtras />} />}
         {view === 'tracks' && <Tracks />}
-        {view === 'settings' && <Settings />}
+        {view === 'settings' && (
+          <Settings
+            sections={
+              <>
+                <BackupSettings />
+                <ExportSettings />
+                <NotifySettings />
+              </>
+            }
+          />
+        )}
       </main>
       {view !== 'night' && (
         <nav className="tabbar" aria-label="画面の切り替え">

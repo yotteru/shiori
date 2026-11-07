@@ -11,6 +11,14 @@ import {
   type Track,
 } from './types';
 
+export interface BackupKeyRecord {
+  id: 'backup-key';
+  key: CryptoKey;
+  /** base64 */
+  salt: string;
+  createdAt: string;
+}
+
 // 端末内のデータ（正本）。指示書 §1・§2.2
 export class ShioriDB extends Dexie {
   tracks!: Table<Track, string>;
@@ -20,6 +28,8 @@ export class ShioriDB extends Dexie {
   leftovers!: Table<Leftover, string>;
   meta!: Table<Meta, string>;
   drafts!: Table<Draft, string>;
+  /** バックアップ用の鍵（取り出し不可の CryptoKey）と salt。合言葉そのものは保存しない */
+  secrets!: Table<BackupKeyRecord, string>;
 
   constructor(name = 'shiori') {
     super(name);
@@ -32,6 +42,8 @@ export class ShioriDB extends Dexie {
       meta: 'key',
       drafts: 'key',
     });
+    // IndexedDB の器の版（データ形式の schemaVersion とは別）
+    this.version(2).stores({ secrets: 'id' });
   }
 }
 
