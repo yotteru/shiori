@@ -363,6 +363,13 @@ public.check_and_send_plan_reminder()           -- security definer、pg_cron �
 - VAPID の鍵は Edge Function が初回に作る。人が秘密値を扱う手順はない
 - 受け取りは `public/push-sw.js`（Workbox の `importScripts`）
 
+### 5.4c 予定の開始時刻の通知（`0007_start_reminders.sql`。2026-11-08 追加）
+
+- 設定（端末ごと、`Meta.startReminder`）：オン／オフ、タイミング（0・5・10・15・30分前）、対象（すべて／その日の最初の行き先だけ）、文面（`{行き先}` が名前に置きかわる）
+- アプリが今日・明日の、まだの行き先（いま始めている行き先・過ぎた時刻は除く）から `[{send_at, body}]` を計算し、`set_start_reminders(endpoint, items)` で端末ごとに丸ごと置き換える。計画・始めた記録・設定が変わるたびに送り直す（同じ内容は送らない。`useStartReminderSync`）
+- `push_schedules.body` は送ったら `claim_due_pushes` で消す。`{行き先}` を使わなければ名前はサーバーに置かれない
+- Edge Function は `start` の文面に `body` を使う。通知の tag は予定ごとに分ける（複数届いても上書きしない）
+
 ### 5.5 秘密値の扱い
 
 LINE のトークン、Supabase の service_role キーなどの秘密値は、**チャットやリポジトリに書かせない**。ユーザーが Supabase ダッシュボード（Vault）で直接登録する手順を README に書く。クライアントに置いてよいのは Supabase の URL と anon（publishable）キーだけ。

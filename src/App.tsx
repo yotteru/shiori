@@ -16,7 +16,9 @@ import { CalendarViewSettings, RoutineSettings } from './ui/RoutineSettings';
 import { Onboarding } from './ui/Onboarding';
 import { Settings } from './ui/Settings';
 import { PushSettings } from './ui/PushSettings';
+import { StartReminderSettingsCard } from './ui/StartReminderSettings';
 import { StartSettings } from './ui/StartSettings';
+import { useStartReminderSync } from './ui/useStartReminderSync';
 import { SyncSettings } from './ui/SyncSettings';
 import { scheduleSync } from './lib/syncRuntime';
 import { Tracks } from './ui/Tracks';
@@ -70,6 +72,7 @@ function DebugBanner() {
 type View = 'home' | 'records' | 'tracks' | 'settings';
 
 function Main() {
+  useStartReminderSync();
   const [view, setView] = useState<View>('home');
   const go = (v: View) => {
     setView(v);
@@ -93,6 +96,7 @@ function Main() {
                 <NotifySettings />
                 <StartSettings />
                 <PushSettings />
+                <StartReminderSettingsCard />
               </>
             }
           />

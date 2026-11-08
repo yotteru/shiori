@@ -1,4 +1,4 @@
-// しおり Edge Function「push」：Web プッシュを送る（2026-11-08 追加。0005_web_push.sql とセット）
+// しおり Edge Function「push」：Web プッシュを送る（2026-11-08 追加。0005_web_push.sql・0007_start_reminders.sql とセット）
 //
 // 登録方法：README「9. 5分の知らせ」。Supabase ダッシュボード > Edge Functions で、
 // 名前を push にしてこのファイルの中身を貼り付け、「Verify JWT」（JWT の検証）をオフにして公開する。
@@ -12,10 +12,11 @@
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-// 通知の文面は種類ごとに固定。取り組みの名前などの中身はサーバーに置かない
+// 通知の文面。開始時刻の通知（start）だけは、本人が設定で決めた文面が予定ごとに届く（送ったらサーバーから消える）
 const MESSAGES: Record<string, { title: string; body: string }> = {
   five_min: { title: 'しおり', body: '5分たちました。続けても、やめてもOK' },
   test: { title: 'しおり', body: 'テストの通知です。届いていれば準備できています' },
+  start: { title: 'しおり', body: '次の行き先の時間です' },
 };
 
 // Apple の送信先に「誰が送っているか」を伝える連絡先（公開ページの URL）
@@ -69,14 +70,15 @@ Deno.serve(async (req) => {
     if (action === 'dispatch') {
       const { data, error } = await db.rpc('claim_due_pushes');
       if (error) throw error;
-      const rows = (data ?? []) as { id: string; kind: string; endpoint: string; p256dh: string; auth: string }[];
+      const rows = (data ?? []) as { id: string; kind: string; endpoint: string; p256dh: string; auth: string; body: string | null }[];
       let sent = 0;
       for (const r of rows) {
-        const msg = MESSAGES[r.kind] ?? MESSAGES.test;
+        const base = MESSAGES[r.kind] ?? MESSAGES.test;
+        const msg = r.kind === 'start' && r.body ? { ...base, body: r.body } : base;
         try {
           await webpush.sendNotification(
             { endpoint: r.endpoint, keys: { p256dh: r.p256dh, auth: r.auth } },
-            JSON.stringify({ ...msg, tag: `shiori-${r.kind}` }),
+            JSON.stringify({ ...msg, tag: `shiori-${r.kind}-${r.id}` }),
             {
               vapidDetails: { subject: SUBJECT, publicKey: keys.publicKey, privateKey: keys.privateKey },
               TTL: 600, // 10分以内に届かなければ捨てる（遅れて来ても意味がない）
