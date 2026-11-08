@@ -112,6 +112,7 @@ export function Records() {
               <span style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</span>
               <span className="small muted">{t.type === 'project' ? 'プロジェクト' : '習慣'}</span>
             </div>
+            {t.goal && <span className="small muted">なりたい状態：{t.goal}</span>}
             {(next || idle >= 7) && (
               <span className="small muted">
                 {next ? `次：${next.title}` : ''}

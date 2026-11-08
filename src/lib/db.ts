@@ -6,6 +6,7 @@ import {
   type Draft,
   type Journal,
   type Leftover,
+  type Memo,
   type Meta,
   type Plan,
   type Routine,
@@ -63,6 +64,8 @@ export class ShioriDB extends Dexie {
   routines!: Table<Routine, string>;
   /** 始めた記録（同期する） */
   starts!: Table<StartSession, string>;
+  /** メモ箱（同期する） */
+  memos!: Table<Memo, string>;
 
   constructor(name = 'shiori') {
     super(name);
@@ -80,6 +83,7 @@ export class ShioriDB extends Dexie {
     this.version(3).stores({ outbox: 'key' });
     this.version(4).stores({ routines: 'id' });
     this.version(5).stores({ starts: 'id, lifeDate' });
+    this.version(6).stores({ memos: 'id, createdAt' });
     installSyncMiddleware(this);
   }
 }

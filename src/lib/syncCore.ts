@@ -1,9 +1,9 @@
-import type { Journal, Leftover, Plan, PlanItem, Routine, StartSession, Step, Track } from './types';
+import type { Journal, Leftover, Memo, Plan, PlanItem, Routine, StartSession, Step, Track } from './types';
 
 // 同期の決まりごと（端末とサーバーに依存しない部分）
 
-export type SyncKind = 'track' | 'step' | 'plan' | 'journal' | 'leftover' | 'routine' | 'start';
-export type SyncRecord = Track | Step | Plan | Journal | Leftover | Routine | StartSession;
+export type SyncKind = 'track' | 'step' | 'plan' | 'journal' | 'leftover' | 'routine' | 'start' | 'memo';
+export type SyncRecord = Track | Step | Plan | Journal | Leftover | Routine | StartSession | Memo;
 
 /** 同期するテーブル。下書き・Meta・鍵は端末ごとのものなので同期しない */
 export const KIND_BY_TABLE: Record<string, SyncKind> = {
@@ -14,6 +14,7 @@ export const KIND_BY_TABLE: Record<string, SyncKind> = {
   leftovers: 'leftover',
   routines: 'routine',
   starts: 'start',
+  memos: 'memo',
 };
 export const TABLE_BY_KIND: Record<SyncKind, string> = {
   track: 'tracks',
@@ -23,6 +24,7 @@ export const TABLE_BY_KIND: Record<SyncKind, string> = {
   leftover: 'leftovers',
   routine: 'routines',
   start: 'starts',
+  memo: 'memos',
 };
 
 export function recordKey(kind: SyncKind, id: string): string {
