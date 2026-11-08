@@ -145,6 +145,8 @@ as $$
    where id = p_id and user_id = auth.uid() and sent_at is null and canceled_at is null;
 $$;
 
+-- 0007 で戻り値に body を足したので、再実行しても型が合わなくならないよう作り直す
+drop function if exists public.claim_due_pushes(timestamptz);
 -- 時刻が来た予定を「送った」にして返す（Edge Function だけが呼ぶ）。
 -- 30分以上前の予定は送らない（サーバーが止まっていたあとに古い知らせがまとめて来ないように）
 create or replace function public.claim_due_pushes(at timestamptz default now())

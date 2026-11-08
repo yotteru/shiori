@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { currentEndpoint, enablePush, pushPermission, schedulePush } from '../lib/push';
+import { forgetSentStartReminders } from '../lib/startReminders';
 import { supabase } from '../lib/supabase';
 
 // 5分の知らせ（Web プッシュ）の準備とテスト。2026-11-08 追加
@@ -21,6 +22,7 @@ export function PushSettings() {
     const r = await enablePush();
     setBusy(false);
     setReady(r.ok);
+    if (r.ok) forgetSentStartReminders();
     setMsg(r.ok ? 'この端末で通知を受け取れるようになりました。下のテストで確かめてください。' : r.reason);
   };
 
