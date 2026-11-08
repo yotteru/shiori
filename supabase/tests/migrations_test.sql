@@ -203,4 +203,97 @@ do $$ begin
   assert not exists (select 1 from pg_policies where schemaname = 'public' and 'anon' = any(roles)), 'anon 向けポリシーがない';
 end $$;
 
+-- 6. Web プッシュ（0005）
+delete from net.requests;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare pid uuid; pid2 uuid;
+begin
+  begin
+    perform public.register_push_subscription('https://web.push.apple.com/abc', 'k', 'a', 'https://evil.example.com/x');
+    raise exception 'FAIL: おかしな URL を受け付けた';
+  exception when invalid_parameter_value then null;
+  end;
+  perform public.register_push_subscription('https://web.push.apple.com/abc', 'k', 'a', 'https://xyz.supabase.co/functions/v1/push');
+  perform public.register_push_subscription('https://web.push.apple.com/abc', 'k2', 'a2', 'https://xyz.supabase.co/functions/v1/push');
+  assert (select count(*) from public.push_subscriptions) = 1, '同じ端末は1行';
+  assert (select p256dh from public.push_subscriptions) = 'k2', '登録し直すと鍵を更新';
+
+  begin
+    perform public.schedule_push('https://web.push.apple.com/abc', 'five_min', 5);
+    raise exception 'FAIL: 5秒後を受け付けた';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.schedule_push('https://web.push.apple.com/other', 'five_min', 300);
+    raise exception 'FAIL: 登録していない端末に予定を入れられた';
+  exception when invalid_parameter_value then null;
+  end;
+  pid := public.schedule_push('https://web.push.apple.com/abc', 'five_min', 300);
+  pid2 := public.schedule_push('https://web.push.apple.com/abc', 'test', 60);
+  perform public.cancel_push(pid2);
+  assert (select count(*) from public.push_schedules) = 2, '本人の予定は読める';
+  begin
+    perform * from public.push_config;
+    raise exception 'FAIL: 本人でも push_config を読めた';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform * from public.claim_due_pushes();
+    raise exception 'FAIL: 本人が claim_due_pushes を呼べた';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  assert (select count(*) from public.push_subscriptions) = 0, '他人の端末は見えない';
+  assert (select count(*) from public.push_schedules) = 0, '他人の予定は見えない';
+  perform public.cancel_push((select id from public.push_schedules limit 1));
+end $$;
+reset role;
+
+do $$
+declare n int; sid uuid;
+begin
+  select id into sid from public.push_schedules where kind = 'five_min';
+  assert (select function_url from public.push_config) = 'https://xyz.supabase.co/functions/v1/push', 'URL を覚える';
+
+  perform public.dispatch_due_pushes(now() + interval '4 minutes');
+  select count(*) into n from net.requests; assert n = 0, '時刻前は呼ばない';
+  perform public.dispatch_due_pushes(now() + interval '5 minutes 30 seconds');
+  select count(*) into n from net.requests; assert n = 1, '時刻が来たら Edge Function を1回呼ぶ';
+  assert (select url from net.requests limit 1) = 'https://xyz.supabase.co/functions/v1/push', '覚えた URL に送る';
+
+  assert (select count(*) from public.claim_due_pushes(now() + interval '5 minutes 30 seconds')) = 1, '取り消していない1件だけ';
+  assert (select sent_at is not null from public.push_schedules where id = sid), '送ったにする';
+  assert (select count(*) from public.claim_due_pushes(now() + interval '6 minutes')) = 0, '2回は送らない';
+
+  delete from net.requests;
+  perform public.dispatch_due_pushes(now() + interval '6 minutes');
+  select count(*) into n from net.requests; assert n = 0, '送るものがなければ呼ばない';
+
+  insert into public.push_schedules (user_id, endpoint, kind, send_at)
+    values ('11111111-1111-1111-1111-111111111111', 'https://web.push.apple.com/abc', 'test', now() - interval '1 hour');
+  assert (select count(*) from public.claim_due_pushes()) = 0, '30分以上前の予定は送らない';
+
+  update public.push_schedules set created_at = now() - interval '8 days';
+  perform public.cleanup_pushes();
+  assert (select count(*) from public.push_schedules) = 0, '古い予定を消す';
+end $$;
+
+set role anon;
+reset request.jwt.claim.sub;
+do $$ begin
+  begin
+    perform public.schedule_push('https://web.push.apple.com/abc', 'five_min', 300);
+    raise exception 'FAIL: anon が schedule_push を呼べた';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+
 select 'ALL SQL TESTS PASSED';
