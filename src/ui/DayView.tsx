@@ -32,7 +32,7 @@ import { db, getMeta } from '../lib/db';
 import { shelveExpired } from '../lib/leftovers';
 import { cancelPush, pushPermission, schedulePush } from '../lib/push';
 import { activeSession } from '../lib/records';
-import { SHORTCUT_START, shortcutUrl } from '../lib/shortcut';
+import { focusMinutes, focusShortcutUrl } from '../lib/shortcut';
 import { DEFAULT_STOP_REASONS, discardSession, endSession, setSessionPush, startSession, stopSession } from '../lib/starts';
 import { addDays, formatLifeDateJa, jstTime, lifeDate, minutesIntoLifeDay, weekday } from '../lib/lifeDate';
 import type { Plan, PlanItem, StartSession } from '../lib/types';
@@ -155,7 +155,7 @@ export function DayView() {
   const active = activeSession(data.starts);
   const activeItem = active?.planItemId ? data.plans.flatMap((p) => p.items).find((i) => i.id === active.planItemId) : undefined;
 
-  const begin = async (input: Pick<StartSession, 'title' | 'planItemId' | 'trackId' | 'quick'>) => {
+  const begin = async (input: Pick<StartSession, 'title' | 'planItemId' | 'trackId' | 'quick'>, plannedMinutes?: number) => {
     const s = await startSession({ lifeDate: today, ...input });
     // 5分後の知らせ（Web プッシュ）。通知の準備がない・圏外のときは、知らせなしで始める
     const pushId = await schedulePush('five_min', 300);
@@ -167,8 +167,9 @@ export function DayView() {
             ? '5分の知らせを予約できませんでした（電波を確かめてください）'
             : '設定の「5分の知らせ」で通知を受け取ると、5分後に知らせます',
       });
-    // 集中モード（ショートカット「しおり5分」）。しおりには戻らないので、そのまま画面を消せばよい
-    if (data.meta.focusShortcut) window.location.href = shortcutUrl(SHORTCUT_START, input.title);
+    // 集中モード（ショートカット「しおり5分」）。予定の長さ（その場の5分は60分）たつと自動でオフ。
+    // しおりには戻らないので、そのまま画面を消せばよい
+    if (data.meta.focusShortcut) window.location.href = focusShortcutUrl(focusMinutes(plannedMinutes));
   };
 
   const finish = async (s: StartSession, outcome: 'done' | 'stopped') => {
@@ -425,7 +426,7 @@ export function DayView() {
                 </span>
               )}
               <div className="cal-two">
-                <button className="btn-next" onClick={() => void begin({ title: next.title, planItemId: next.id, trackId: next.trackId })}>
+                <button className="btn-next" onClick={() => void begin({ title: next.title, planItemId: next.id, trackId: next.trackId }, next.minutes)}>
                   5分だけ始める
                 </button>
                 <button className="btn" style={{ fontWeight: 700 }} onClick={() => setDoneFor(next)}>
