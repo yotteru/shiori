@@ -60,7 +60,40 @@ export async function removeItem(lifeDate: string, itemId: string, database: Shi
 
 /** 最初の一手を書き換える */
 export async function editFirstStep(lifeDate: string, itemId: string, firstStep: string, database: ShioriDB = db) {
-  await editPlan(lifeDate, 'night', (p) => ({ ...p, items: p.items.map((i) => (i.id === itemId ? { ...i, firstStep } : i)) }), database);
+  await editStart(lifeDate, itemId, { firstStep }, database);
+}
+
+/** 始め方（きっかけ・最初の一手）を書き換える */
+export async function editStart(lifeDate: string, itemId: string, patch: { firstStep?: string; cue?: string }, database: ShioriDB = db) {
+  await editPlan(
+    lifeDate,
+    'night',
+    (p) => ({
+      ...p,
+      items: p.items.map((i) => {
+        if (i.id !== itemId) return i;
+        const next = { ...i, ...patch };
+        if (!next.cue) delete next.cue;
+        return next;
+      }),
+    }),
+    database,
+  );
+}
+
+/** 前の晩の準備を書く・済ませる（text が空なら消す） */
+export async function setPrep(lifeDate: string, prep: { text: string; doneAt?: string } | null, database: ShioriDB = db) {
+  await editPlan(
+    lifeDate,
+    'night',
+    (p) => {
+      const next = { ...p };
+      if (prep && prep.text.trim()) next.prep = { text: prep.text.trim(), ...(prep.doneAt ? { doneAt: prep.doneAt } : {}) };
+      else delete next.prep;
+      return next;
+    },
+    database,
+  );
 }
 
 // ---- その日の固定 ----
