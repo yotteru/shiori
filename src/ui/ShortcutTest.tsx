@@ -4,7 +4,6 @@
 // 作り方は docs/SHORTCUTS.md
 
 export const SHORTCUT_START = 'しおり5分';
-export const SHORTCUT_END = 'しおりおわり';
 const SHORTCUT_TEST = 'しおりテスト';
 
 export function shortcutUrl(name: string, text?: string): string {
@@ -27,11 +26,10 @@ const tests: { label: string; note: string; href: () => string }[] = [
   { label: '1. 呼べるか', note: `「${SHORTCUT_TEST}」が動き、通知が出れば成功`, href: () => shortcutUrl(SHORTCUT_TEST) },
   { label: '2. 戻ってくるか', note: '動いたあと、しおり（ホーム画面のアプリ）に戻れば成功。Safari が開いたら失敗', href: () => callbackUrl(SHORTCUT_TEST) },
   {
-    label: '3. 始める（本番と同じ）',
-    note: `「${SHORTCUT_START}」で集中モードがオンになり、5分後に iPhone と Apple Watch に通知が来れば成功`,
+    label: '3. 集中モードをオンにする',
+    note: `「${SHORTCUT_START}」で集中モード「しおり」がオンになれば成功（5分の知らせは上の「5分の知らせ」で試します）`,
     href: () => shortcutUrl(SHORTCUT_START, 'テストの行き先'),
   },
-  { label: '4. おわる', note: `「${SHORTCUT_END}」で集中モードがオフに戻れば成功`, href: () => shortcutUrl(SHORTCUT_END) },
 ];
 
 export function ShortcutTestSettings() {
@@ -39,8 +37,11 @@ export function ShortcutTestSettings() {
     <div className="card">
       <span className="label">テスト：ショートカットを呼ぶ</span>
       <span className="sub">
-        「5分だけ始める」の見直し用です。先にショートカットを作ってから、上から順に試してください（作り方は docs/SHORTCUTS.md）。
+        「5分だけ始める」の見直し用です。手順書のとおりにショートカットを作ってから試してください。
       </span>
+      <a className="btn" href="https://github.com/yotteru/shiori/blob/main/docs/SHORTCUTS.md" target="_blank" rel="noreferrer">
+        手順書を開く
+      </a>
       {tests.map((t) => (
         <div key={t.label} className="stack" style={{ gap: 2 }}>
           <a className="btn" href={t.href()}>

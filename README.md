@@ -43,6 +43,7 @@
 2. [supabase/migrations/0002_plan_reminder.sql](supabase/migrations/0002_plan_reminder.sql)
 3. [supabase/migrations/0003_sync.sql](supabase/migrations/0003_sync.sql)（iPhone と iPad の同期）
 4. [supabase/migrations/0004_sync_routines.sql](supabase/migrations/0004_sync_routines.sql)（いつもの固定の同期）
+5. [supabase/migrations/0005_web_push.sql](supabase/migrations/0005_web_push.sql)（5分の知らせ。手順 9 も必要）
 
 実行後、次の SQL でジョブが登録されていることを確認します。
 
@@ -90,6 +91,31 @@ update public.notification_state set notify_time = '23:00' where id = 1;
 2. **iPad**：Safari で公開URLを開き、ホーム画面に追加 → 同じメールアドレスとパスワードでログイン
 3. iPad の初回案内の下にある「**もう一方の端末と同期する**」に、iPhone と同じ合言葉を入れる
 4. 以後は、開いた時と変更のたびに自動で同期します（設定の「今すぐ同期」でも可）
+
+### 9. 5分の知らせ（Web プッシュ）
+
+「5分だけ始める」の知らせを、サーバーから iPhone（画面が消えていれば Apple Watch）へ通知で送ります。秘密の値を登録する作業はありません。
+
+**① SQL を実行する（1回だけ）**
+
+1. Supabase ダッシュボード → 左の **SQL Editor**
+2. [supabase/migrations/0005_web_push.sql](supabase/migrations/0005_web_push.sql) の中身を全部コピーして貼り付け → **Run**
+3. 「Success」と出れば完了
+
+**② 通知を送るプログラムを登録する（1回だけ）**
+
+1. Supabase ダッシュボード → 左の **Edge Functions** → **Deploy a new function**（または「Create a new function」）→ **Via Editor**
+2. 関数の名前を **push** にする（一字一句このとおり）
+3. エディタの中身を全部消し、[supabase/functions/push/index.ts](supabase/functions/push/index.ts) の中身を全部貼り付ける
+4. **Deploy function** を押す
+5. 公開された push の画面 → **Details**（または Settings）→「**Verify JWT**」（JWT の検証）を**オフ**にして保存
+   - オンのままだと、サーバーの1分おきの確認から呼べません
+
+**③ iPhone で受け取る準備をする**
+
+1. ホーム画面のしおり → 設定 →「**5分の知らせ（通知）**」→ **この端末で通知を受け取る** → 通知を「許可」
+2. **テスト：1分後** を押し、iPhone の画面を消して待つ → 1〜2分で「テストの通知です」が届けば完了
+3. 集中モード「しおり」でもしおりの通知が届くよう、設定アプリ → 集中モード → しおり →「通知を許可」の App に **しおり** を追加する
 
 ## 使い方の要点
 

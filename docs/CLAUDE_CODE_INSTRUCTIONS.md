@@ -349,6 +349,16 @@ public.check_and_send_plan_reminder()           -- security definer、pg_cron �
 - `encrypted_records (user_id, kind, record_id, ciphertext, iv, deleted, client_updated_at, server_updated_at)`、`sync_keys (user_id, salt, check_ciphertext, check_iv)`。どちらも RLS で本人の行だけ
 - `push_records(jsonb)`（security invoker）：`client_updated_at` が古い変更は受け付けず、サーバーの行を返す。同じ時刻は上書き（合言葉変更時の送り直し）
 
+### 5.4b Web プッシュ（`0005_web_push.sql` と Edge Function `push`。2026-11-08 追加）
+
+- 「5分だけ始める」の知らせはサーバーから送る（ショートカットのリマインダー方式は iOS で動かなかったため）。集中モードはショートカット「しおり5分」（集中モードをオンにする1行だけ）
+- テーブル：`push_subscriptions`（端末の送り先。本人の行だけ）、`push_schedules`（いつ送るか。`send_at` はサーバーの時計で決める）、`push_config`（Edge Function の URL と VAPID の鍵。クライアントから読めない）
+- RPC：`register_push_subscription`（端末の登録と Edge Function の URL）、`schedule_push(endpoint, kind, 30〜7200秒)`、`cancel_push(id)`
+- pg_cron `dispatch-due-pushes`（1分おき）は、時刻が来た予定があるときだけ Edge Function を呼ぶ。Edge Function が `claim_due_pushes`（service_role のみ）で取り出して送る。30分以上前の予定は送らない。404・410 の端末は消す
+- 中身はサーバーに置かない。通知の文面は種類ごとに Edge Function に固定（`five_min`・`test`）
+- VAPID の鍵は Edge Function が初回に作る。人が秘密値を扱う手順はない
+- 受け取りは `public/push-sw.js`（Workbox の `importScripts`）
+
 ### 5.5 秘密値の扱い
 
 LINE のトークン、Supabase の service_role キーなどの秘密値は、**チャットやリポジトリに書かせない**。ユーザーが Supabase ダッシュボード（Vault）で直接登録する手順を README に書く。クライアントに置いてよいのは Supabase の URL と anon（publishable）キーだけ。
