@@ -34,7 +34,7 @@ export interface NewStep {
 }
 
 export async function createTrack(
-  input: Pick<Track, 'name' | 'type' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue'>,
+  input: Pick<Track, 'name' | 'type' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue'> & { goal?: string },
   steps: NewStep[] = [],
   database: ShioriDB = db,
 ): Promise<Track> {
@@ -245,7 +245,7 @@ export async function quickStart(today: string, c: Candidate, database: ShioriDB
 
 export async function updateTrack(
   id: string,
-  patch: Partial<Pick<Track, 'name' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue'>>,
+  patch: Partial<Pick<Track, 'name' | 'goal' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue'>>,
   database: ShioriDB = db,
 ) {
   const t = await database.tracks.get(id);
