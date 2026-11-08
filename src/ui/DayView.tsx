@@ -73,11 +73,9 @@ export function DayView() {
   const [doneFor, setDoneFor] = useState<PlanItem | null>(null);
   const [toast, setToast] = useState<{ message: string; undoId?: string } | null>(null);
   const [confirmed, setConfirmed] = useState<SavePlanResult | null>(null);
-  const [compact, setCompact] = useState(false);
   const [topH, setTopH] = useState(0);
   const topRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
-  const quietUntil = useRef(0);
 
   // 3生活日を過ぎたやり残しを保留へ移す
   useEffect(() => {
@@ -87,32 +85,13 @@ export function DayView() {
     });
   }, [today]);
 
-  // 見出しは画面の上に重ねて固定。広げたときの高さぶん、ページの上を空けておく（畳んでも変えない）
+  // 見出しは画面の上に重ねて固定。その高さぶん、ページの上を空けておく
   useLayoutEffect(() => {
     const el = topRef.current;
     if (!el) return;
-    const was = el.classList.contains('compact');
-    el.classList.remove('compact');
     setTopH(el.offsetHeight);
-    if (was) el.classList.add('compact');
   });
 
-  // 下へスクロールすると候補と今週の合計を畳み、少し戻すと開く（自動のスクロールでは畳まない）
-  useEffect(() => {
-    let last = window.scrollY;
-    const onScroll = () => {
-      const y = window.scrollY;
-      if (Date.now() < quietUntil.current) {
-        last = y;
-        return;
-      }
-      if (y > last + 6 && y > 60) setCompact(true);
-      else if (y < last - 6 || y < 20) setCompact(false);
-      last = y;
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   const view = data?.view ?? DEFAULT_VIEW;
   const nowMin = minutesIntoLifeDay(now) + 4 * 60;
@@ -120,8 +99,6 @@ export function DayView() {
   const scrollToMinute = (m: number, smooth = false) => {
     const grid = document.querySelector('.cal-grid');
     if (!grid) return;
-    quietUntil.current = Date.now() + (smooth ? 900 : 300);
-    setCompact(false);
     const y = grid.getBoundingClientRect().top + window.scrollY + (m - view.start * 60) * PX_PER_MIN - (topRef.current?.offsetHeight ?? 0) - 8;
     window.scrollTo({ top: Math.max(0, y), behavior: smooth ? 'smooth' : 'auto' });
   };
@@ -213,7 +190,7 @@ export function DayView() {
 
   return (
     <>
-      <div ref={topRef} className={`cal-top${compact ? ' compact' : ''}`}>
+      <div ref={topRef} className="cal-top">
         <div className="seg" role="tablist" aria-label="今日と明日">
           {(['today', 'tomorrow'] as const).map((d) => (
             <button
@@ -259,7 +236,7 @@ export function DayView() {
             )}
           </div>
         </div>
-        {/* 下へスクロールしたときに畳むのは「今週の合計」だけ。候補は遅い時間帯にも置けるよう常に出しておく */}
+        {/* 見出し（今週の合計・候補・案内）はスクロールしても畳まず、常に表示する（2026-11-08） */}
         <div className="cal-collapse">
           <div className="row-scroll">
             <span className="week-chip muted" style={{ paddingLeft: 0 }}>
