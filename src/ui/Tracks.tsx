@@ -16,8 +16,8 @@ import {
 import { lastDoneByTrack } from '../lib/candidates';
 import { db } from '../lib/db';
 import { formatLifeDateJa, lifeDate } from '../lib/lifeDate';
-import { daysSinceTouched, isStalled, recentHabitDays } from '../lib/tracks';
-import type { Leftover, Plan, Step, Track } from '../lib/types';
+import { daysSinceTouched, isStalled } from '../lib/tracks';
+import type { Leftover, Step, Track } from '../lib/types';
 import { MinutesSelect, Sheet } from './common';
 import { emptyTrackForm, isTrackFormValid, TrackForm, trackFormToInput } from './TrackForm';
 
@@ -69,7 +69,6 @@ export function Tracks() {
               key={t.id}
               track={t}
               steps={data.steps.filter((s) => s.trackId === t.id)}
-              plans={data.plans}
               lastDoneAt={lastDone[t.id]}
               today={today}
               onOpen={() => setOpenId(t.id)}
@@ -101,16 +100,15 @@ export function Tracks() {
   );
 }
 
-function TrackCard({ track, steps, plans, lastDoneAt, today, onOpen }: {
+function TrackCard({ track, steps, lastDoneAt, today, onOpen }: {
   track: Track;
   steps: Step[];
-  plans: Plan[];
   lastDoneAt?: string;
   today: string;
   onOpen: () => void;
 }) {
   const sorted = steps.slice().sort((a, b) => a.order - b.order);
-  const nextId = sorted.find((s) => s.status === 'todo')?.id;
+  const nextTitle = sorted.find((s) => s.status === 'todo')?.title;
   const stalled = isStalled(track, lastDoneAt, today);
   return (
     <button className="card" style={{ border: 0, textAlign: 'left', width: '100%' }} onClick={onOpen}>
@@ -118,22 +116,12 @@ function TrackCard({ track, steps, plans, lastDoneAt, today, onOpen }: {
         <span style={{ fontSize: 15, fontWeight: 700 }}>{track.name}</span>
         <span className="small muted">{track.type === 'project' ? 'プロジェクト' : '習慣'}</span>
       </div>
-      {track.type === 'project' ? (
-        <div className="row" style={{ flexWrap: 'wrap', gap: 4 }} role="img" aria-label={`${sorted.filter((s) => s.status === 'done').length} / ${sorted.length} ステップ完了`}>
-          {sorted.map((s) => (
-            <span key={s.id} className={`sq${s.status === 'done' ? ' on' : ''}${s.id === nextId ? ' today' : ''}`} />
-          ))}
-          <span className="mono small muted" style={{ marginLeft: 6 }}>
-            {sorted.filter((s) => s.status === 'done').length} / {sorted.length}
-          </span>
-        </div>
-      ) : (
-        <div className="squares" role="img" aria-label="直近2週間の実施">
-          {recentHabitDays(track.id, plans, today).map((d) => (
-            <span key={d.date} className={`sq${d.done ? ' on' : ''}`} style={{ width: 16, height: 16 }} />
-          ))}
-        </div>
-      )}
+      {/* 進み具合のグラフは「記録」タブへ。ここは決める・直すための一覧 */}
+      <span className="small muted">
+        {track.type === 'project'
+          ? `${nextTitle ? `次：${nextTitle}・` : ''}ステップ ${sorted.filter((s) => s.status === 'done').length} / ${sorted.length} 完了`
+          : `いつもの長さ ${track.defaultMinutes ?? 60}分${track.defaultFirstStep ? `・最初の一手：${track.defaultFirstStep}` : ''}`}
+      </span>
       {stalled && (
         <span className="small muted">
           最後に触ってから {daysSinceTouched(track, lastDoneAt, today)}日{track.lastNote ? `・前回：${track.lastNote.text}` : ''}
