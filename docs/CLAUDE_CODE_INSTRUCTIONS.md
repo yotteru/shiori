@@ -171,6 +171,12 @@ interface Draft { key: string; value: string; updatedAt: string } // 入力途�
 - 表示時間帯（端末ごと、`Meta.calendarView`）：初期値 6:00〜24:00、開いたときは 8:00
 - 実装：`src/lib/calendar.ts`（計算）、`src/lib/calendarActions.ts`（操作）、`src/ui/Calendar.tsx`・`DayView.tsx`・`RoutineSettings.tsx`
 
+### 3.0c 記録タブと取り組みの編集（2026-11-08）
+
+- タブは しおり／記録／取り組み／設定。記録は眺める・振り返る、取り組みは決める・直す
+- 記録：今週の時間（取り組みごとの横棒・多い順）、直近8週の棒グラフ（今週だけ濃い色）、プロジェクトの進み具合バー。数えるのは済の時間だけ（`src/lib/records.ts`）
+- 取り組み：削除（ステップ・予定・済の記録・やり残しもまとめて消す。確認つき）と、種類の変更（ステップは残す）。終了は記録を残す
+
 ### 3.1 起動時の分岐
 
 1. **ホーム画面から開いていない**（`display-mode: standalone` でない、かつ `navigator.standalone !== true`）

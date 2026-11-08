@@ -203,3 +203,23 @@ button:disabled { cursor: default; opacity: 0.45; }
 .days7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .days7 button { min-height: 36px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 13px; }
 .days7 button[aria-pressed='true'] { background: var(--card-strong); color: #fff; border-color: var(--card-strong); }
+
+/* ===== 記録タブのグラフ（済の時間。1色：今週だけ濃く、過去は薄く） ===== */
+.tabbar > div { grid-template-columns: repeat(4, 1fr); }
+.viz-card { background: var(--surface); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.hbars { display: flex; flex-direction: column; gap: 10px; }
+.hbar { display: grid; grid-template-columns: 72px minmax(0, 1fr) 84px; align-items: center; gap: 8px; border: 0; background: transparent; padding: 0; text-align: left; }
+.hbar .nm { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar .tr { height: 14px; position: relative; }
+.hbar .fl { position: absolute; left: 0; top: 0; bottom: 0; background: var(--done); border-radius: 0 4px 4px 0; min-width: 2px; }
+.hbar .vl { font-size: 12px; font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.cols { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; align-items: end; height: 72px; padding-top: 16px; border-bottom: 1px solid var(--line); }
+.cols .c { position: relative; height: 100%; display: flex; align-items: flex-end; justify-content: center; border: 0; background: transparent; padding: 0; }
+.cols .c i { display: block; width: min(100%, 18px); background: #a7d8d1; border-radius: 4px 4px 0 0; }
+.cols .c.cur i { background: var(--done); }
+.cols .c b { position: absolute; font-size: 10px; font-family: var(--mono); white-space: nowrap; font-weight: 600; }
+.cols-x { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; font-size: 9px; color: var(--muted); text-align: center; font-family: var(--mono); }
+.meter { height: 10px; border-radius: 5px; background: var(--track); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--done); border-radius: 0 4px 4px 0; }
+.viz-tip { position: fixed; z-index: 50; background: var(--card-strong); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 12px; pointer-events: none; white-space: nowrap; }
+.viz-tip b { font-family: var(--mono); }

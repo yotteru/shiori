@@ -138,3 +138,28 @@ describe('取り組みと保留', () => {
     expect((await d.leftovers.get('L'))?.shelvedAt).toBeUndefined();
   });
 });
+
+describe('取り組みの削除と種類の変更', () => {
+  it('削除するとステップ・予定（済も）・やり残しもまとめて消える。ほかの取り組みは残る', async () => {
+    const { deleteTrack } = await import('./actions');
+    const d = fresh();
+    await seed(d);
+    await d.leftovers.put({ id: 'L', fromLifeDate: '2026-11-03', item: { id: 'z', trackId: 'p', title: 'x', minutes: 30, firstStep: '', status: 'undone' } });
+    await markDone('2026-11-04', 'i1', '', d);
+    await deleteTrack('p', d);
+    expect(await d.tracks.get('p')).toBeUndefined();
+    expect(await d.steps.where('trackId').equals('p').count()).toBe(0);
+    expect(await d.leftovers.count()).toBe(0);
+    expect((await d.plans.get('2026-11-04'))?.items.map((i) => i.trackId)).toEqual(['h']);
+    expect(await d.tracks.get('h')).toBeTruthy();
+  });
+
+  it('種類を変えてもステップは残る', async () => {
+    const { changeTrackType } = await import('./actions');
+    const d = fresh();
+    await seed(d);
+    await changeTrackType('p', 'habit', d);
+    expect((await d.tracks.get('p'))?.type).toBe('habit');
+    expect(await d.steps.where('trackId').equals('p').count()).toBe(2);
+  });
+});

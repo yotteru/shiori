@@ -11,6 +11,7 @@ import { ConfigMissing, InstallGuide } from './ui/InstallGuide';
 import { Login } from './ui/Login';
 import { NotifySettings } from './ui/NotifySettings';
 import { DayView } from './ui/DayView';
+import { Records } from './ui/Records';
 import { CalendarViewSettings, RoutineSettings } from './ui/RoutineSettings';
 import { Onboarding } from './ui/Onboarding';
 import { Settings } from './ui/Settings';
@@ -64,7 +65,7 @@ function DebugBanner() {
   return <div className="debug-banner">テスト中：日時を上書きしています</div>;
 }
 
-type View = 'home' | 'tracks' | 'settings';
+type View = 'home' | 'records' | 'tracks' | 'settings';
 
 function Main() {
   const [view, setView] = useState<View>('home');
@@ -76,6 +77,7 @@ function Main() {
     <>
       <main className="screen">
         {view === 'home' && <DayView />}
+        {view === 'records' && <Records />}
         {view === 'tracks' && <Tracks />}
         {view === 'settings' && (
           <Settings
@@ -98,6 +100,7 @@ function Main() {
             {(
               [
                 ['home', 'しおり'],
+                ['records', '記録'],
                 ['tracks', '取り組み'],
                 ['settings', '設定'],
               ] as const
