@@ -167,7 +167,7 @@ export function DayView() {
             ? '5分の知らせを予約できませんでした（電波を確かめてください）'
             : '設定の「5分の知らせ」で通知を受け取ると、5分後に知らせます',
       });
-    // 集中モード（ショートカット「しおり5分」）。予定の長さ（その場の5分は60分）たつと自動でオフ。
+    // 集中モード（ショートカット「しおり5分」）。自動では切れない（終わったら Watch から切る）。
     // しおりには戻らないので、そのまま画面を消せばよい
     if (data.meta.focusShortcut) window.location.href = focusShortcutUrl(focusMinutes(plannedMinutes));
   };

@@ -296,4 +296,47 @@ do $$ begin
 end $$;
 reset role;
 
+-- 7. 開始時刻の通知（0007）
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare n int;
+begin
+  n := public.set_start_reminders('https://web.push.apple.com/abc', jsonb_build_array(
+    jsonb_build_object('send_at', now() + interval '10 minutes', 'body', 'アドイン の時間です'),
+    jsonb_build_object('send_at', now() + interval '1 hour', 'body', ''),
+    jsonb_build_object('send_at', now() - interval '1 minute', 'body', '過去'),
+    jsonb_build_object('send_at', now() + interval '3 days', 'body', '先すぎる')
+  ));
+  assert n = 2, '過去と2日より先は捨てる';
+  n := public.set_start_reminders('https://web.push.apple.com/abc', jsonb_build_array(
+    jsonb_build_object('send_at', now() + interval '20 minutes', 'body', '置き換え後')
+  ));
+  assert n = 1;
+  assert (select count(*) from public.push_schedules where kind = 'start') = 1, '丸ごと置き換える';
+  begin
+    perform public.set_start_reminders('https://web.push.apple.com/other', '[]'::jsonb);
+    raise exception 'FAIL: 登録していない端末に入れられた';
+  exception when invalid_parameter_value then null;
+  end;
+end $$;
+reset role;
+
+do $$
+declare r record;
+begin
+  select * into r from public.claim_due_pushes(now() + interval '21 minutes') where kind = 'start';
+  assert r.body = '置き換え後', '文面を返す';
+  assert (select body from public.push_schedules where id = r.id) is null, '送ったら文面を消す';
+  assert (select sent_at is not null from public.push_schedules where id = r.id), '送ったにする';
+end $$;
+
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  perform public.set_start_reminders('https://web.push.apple.com/abc', '[]'::jsonb);
+  assert (select count(*) from public.push_schedules where kind = 'start' and sent_at is not null) = 1, '送ったものは消さない';
+end $$;
+reset role;
+
 select 'ALL SQL TESTS PASSED';

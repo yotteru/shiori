@@ -155,6 +155,16 @@ export interface Meta {
   focusShortcut?: boolean;
   /** 「ここまで」の理由の候補。端末ごと */
   stopReasons?: string[];
+  /** 予定の開始時刻の通知（2026-11-08）。端末ごと */
+  startReminder?: {
+    enabled: boolean;
+    /** 何分前に知らせるか（0 = 開始時刻ちょうど） */
+    leadMinutes: number;
+    /** すべての行き先か、その日の最初の行き先だけか */
+    target: 'all' | 'first';
+    /** 文面。{行き先} が行き先の名前に置きかわる */
+    template: string;
+  };
   /** 同期で最後に取り込んだサーバー時刻 */
   syncCursor?: string;
   lastSyncAt?: string;
