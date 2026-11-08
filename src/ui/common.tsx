@@ -1,12 +1,15 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { timeOptions } from '../lib/schedule';
 
-export const MINUTE_CHOICES = [15, 30, 45, 60, 75, 90, 105, 120, 150, 180];
+// 予定の最小単位は30分（2026-11-08）。それ以降は15分刻み
+export const MINUTE_CHOICES = [30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180];
 
 export function MinutesSelect({ value, onChange, id }: { value: number; onChange: (m: number) => void; id?: string }) {
-  const choices = MINUTE_CHOICES.includes(value) ? MINUTE_CHOICES : [...MINUTE_CHOICES, value].sort((a, b) => a - b);
+  // 30分未満の古い値は30分として表示する（カレンダーでも30分で置かれる）
+  const shown = value < 30 ? 30 : value;
+  const choices = MINUTE_CHOICES.includes(shown) ? MINUTE_CHOICES : [...MINUTE_CHOICES, shown].sort((a, b) => a - b);
   return (
-    <select id={id} className="select" value={value} onChange={(e) => onChange(Number(e.target.value))}>
+    <select id={id} className="select" value={shown} onChange={(e) => onChange(Number(e.target.value))}>
       {choices.map((m) => (
         <option key={m} value={m}>
           {m}分
