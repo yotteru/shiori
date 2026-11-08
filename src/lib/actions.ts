@@ -20,6 +20,7 @@ export function itemFromCandidate(c: Candidate): PlanItem {
     title: c.title,
     minutes: c.minutes,
     firstStep: c.firstStep,
+    ...(c.cue ? { cue: c.cue } : {}),
     status: 'planned',
   };
 }
@@ -33,7 +34,7 @@ export interface NewStep {
 }
 
 export async function createTrack(
-  input: Pick<Track, 'name' | 'type' | 'defaultMinutes' | 'defaultFirstStep'>,
+  input: Pick<Track, 'name' | 'type' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue'>,
   steps: NewStep[] = [],
   database: ShioriDB = db,
 ): Promise<Track> {
@@ -55,7 +56,7 @@ export async function createTrack(
 }
 
 export async function completeOnboarding(
-  input: Pick<Track, 'name' | 'type' | 'defaultMinutes' | 'defaultFirstStep'>,
+  input: Pick<Track, 'name' | 'type' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue'>,
   steps: NewStep[],
   database: ShioriDB = db,
 ): Promise<void> {
@@ -244,7 +245,7 @@ export async function quickStart(today: string, c: Candidate, database: ShioriDB
 
 export async function updateTrack(
   id: string,
-  patch: Partial<Pick<Track, 'name' | 'defaultMinutes' | 'defaultFirstStep'>>,
+  patch: Partial<Pick<Track, 'name' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue'>>,
   database: ShioriDB = db,
 ) {
   const t = await database.tracks.get(id);

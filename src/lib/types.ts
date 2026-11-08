@@ -12,6 +12,8 @@ export interface Track {
   /** 習慣型の既定値 */
   defaultMinutes?: number;
   defaultFirstStep?: string;
+  /** 習慣型の既定値：きっかけ（例：帰宅して靴を脱いだら） */
+  defaultCue?: string;
   /** 前回の続き（済をつけたときの「次はここから」） */
   lastNote?: { text: string; at: string };
   /** 同期用：最後に変更した実時刻（自動で付く） */
@@ -47,6 +49,8 @@ export interface Plan {
   extraFixed?: ExtraFixed[];
   /** 祝日・有休など、この日を休日として扱う */
   holiday?: boolean;
+  /** 前の晩の準備（最初の行き先のために今夜やること） */
+  prep?: { text: string; doneAt?: string };
   updatedAt?: string;
 }
 
@@ -88,6 +92,8 @@ export interface PlanItem {
   updatedAt?: string;
   /** カレンダー上の開始時刻（その日の 0:00 からの分）。古い計画にはないので window から割り付ける */
   start?: number;
+  /** きっかけ（「〜したら」→ 最初の一手） */
+  cue?: string;
 }
 
 /** ジャーナル（1生活日に1件） */

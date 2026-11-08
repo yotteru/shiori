@@ -237,6 +237,15 @@ function TrackDetail({ track, steps, onBack }: { track: Track; steps: Step[]; on
               onBlur={(e) => updateTrack(track.id, { defaultFirstStep: e.target.value.trim() || undefined })}
             />
           </label>
+          <label className="field">
+            <span>いつものきっかけ（〜したら）</span>
+            <input
+              className="input"
+              placeholder="例：帰宅して靴を脱いだら"
+              defaultValue={track.defaultCue ?? ''}
+              onBlur={(e) => updateTrack(track.id, { defaultCue: e.target.value.trim() || undefined })}
+            />
+          </label>
         </div>
       ) : (
         <div className="stack">
