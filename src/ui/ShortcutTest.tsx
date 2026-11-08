@@ -39,8 +39,11 @@ export function ShortcutTestSettings() {
     <div className="card">
       <span className="label">テスト：ショートカットを呼ぶ</span>
       <span className="sub">
-        「5分だけ始める」の見直し用です。先にショートカットを作ってから、上から順に試してください（作り方は docs/SHORTCUTS.md）。
+        「5分だけ始める」の見直し用です。まず手順書のステップ1で「しおりテスト」を作り、1と2を試してください。
       </span>
+      <a className="btn" href="https://github.com/yotteru/shiori/blob/main/docs/SHORTCUTS.md" target="_blank" rel="noreferrer">
+        手順書を開く
+      </a>
       {tests.map((t) => (
         <div key={t.label} className="stack" style={{ gap: 2 }}>
           <a className="btn" href={t.href()}>
