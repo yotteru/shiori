@@ -1,5 +1,5 @@
 import { db, type ShioriDB } from './db';
-import { SCHEMA_VERSION, type Journal, type Leftover, type Plan, type Step, type Track } from './types';
+import { SCHEMA_VERSION, type Journal, type Leftover, type Plan, type Routine, type Step, type Track } from './types';
 
 // 全データの取り出しと置き換え。書き出し（§4.2）と自動バックアップ（§4.1）で共通に使う
 
@@ -9,6 +9,8 @@ export interface Snapshot {
   plans: Plan[];
   journals: Journal[];
   leftovers: Leftover[];
+  /** いつもの固定（2026-11-08 追加。古いファイルにはない） */
+  routines?: Routine[];
 }
 
 export interface BackupFile extends Snapshot {
@@ -18,12 +20,13 @@ export interface BackupFile extends Snapshot {
 }
 
 export async function takeSnapshot(database: ShioriDB = db): Promise<Snapshot> {
-  return database.transaction('r', [database.tracks, database.steps, database.plans, database.journals, database.leftovers], async () => ({
+  return database.transaction('r', [database.tracks, database.steps, database.plans, database.journals, database.leftovers, database.routines], async () => ({
     tracks: await database.tracks.toArray(),
     steps: await database.steps.toArray(),
     plans: await database.plans.orderBy('lifeDate').toArray(),
     journals: await database.journals.orderBy('lifeDate').toArray(),
     leftovers: await database.leftovers.toArray(),
+    routines: await database.routines.toArray(),
   }));
 }
 
@@ -66,7 +69,7 @@ export function parseBackupFile(raw: unknown): BackupFile {
 export async function replaceAll(s: Snapshot, database: ShioriDB = db): Promise<void> {
   await database.transaction(
     'rw',
-    [database.tracks, database.steps, database.plans, database.journals, database.leftovers, database.drafts, database.meta],
+    [database.tracks, database.steps, database.plans, database.journals, database.leftovers, database.routines, database.drafts, database.meta],
     async () => {
       await Promise.all([
         database.tracks.clear(),
@@ -74,6 +77,7 @@ export async function replaceAll(s: Snapshot, database: ShioriDB = db): Promise<
         database.plans.clear(),
         database.journals.clear(),
         database.leftovers.clear(),
+        database.routines.clear(),
         database.drafts.clear(),
       ]);
       await database.tracks.bulkPut(s.tracks);
@@ -81,6 +85,7 @@ export async function replaceAll(s: Snapshot, database: ShioriDB = db): Promise<
       await database.plans.bulkPut(s.plans);
       await database.journals.bulkPut(s.journals);
       await database.leftovers.bulkPut(s.leftovers);
+      if (s.routines?.length) await database.routines.bulkPut(s.routines);
       const meta = (await database.meta.get('meta')) ?? { key: 'meta' as const, schemaVersion: 1 as const, onboarded: false };
       await database.meta.put({ ...meta, onboarded: meta.onboarded || s.tracks.length > 0 });
     },
