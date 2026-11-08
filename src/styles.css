@@ -134,7 +134,6 @@ button:disabled { cursor: default; opacity: 0.45; }
 
 /* ===== カレンダー（2026-11-08。試作ページと同じ作り） ===== */
 .cal-top { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; z-index: 20; background: var(--bg); padding: calc(env(safe-area-inset-top) + 10px) 16px 6px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 0 var(--track); }
-.cal-top.compact .cal-collapse { display: none; }
 .cal-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .cal-title h1 { margin: 0; font-size: 17px; font-weight: 700; }
 .cal-chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }

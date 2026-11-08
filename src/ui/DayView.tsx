@@ -16,7 +16,8 @@ import {
 import {
   addExtraFixed,
   confirmPlan,
-  editFirstStep,
+  editStart,
+  setPrep,
   moveExtraFixed,
   moveItem,
   placeCandidate,
@@ -26,7 +27,7 @@ import {
   setHoliday,
 } from '../lib/calendarActions';
 import { buildCandidates, candidateKey, lastDoneByTrack, morningCandidates, type Candidate } from '../lib/candidates';
-import { nowIso, toDate } from '../lib/clock';
+import { nowIso, realNowIso, toDate } from '../lib/clock';
 import { db, getMeta } from '../lib/db';
 import { shelveExpired } from '../lib/leftovers';
 import { addDays, formatLifeDateJa, jstTime, lifeDate, minutesIntoLifeDay, weekday } from '../lib/lifeDate';
@@ -62,6 +63,7 @@ export function DayView() {
       routines: await db.routines.toArray(),
       view: (await getMeta()).calendarView ?? DEFAULT_VIEW,
       started: await db.drafts.where('key').startsWith(`started:${today}:`).toArray(),
+      continued: await db.drafts.where('key').startsWith(`continue:${today}:`).toArray(),
     }),
     [date, today],
   );
@@ -73,11 +75,9 @@ export function DayView() {
   const [doneFor, setDoneFor] = useState<PlanItem | null>(null);
   const [toast, setToast] = useState<{ message: string; undoId?: string } | null>(null);
   const [confirmed, setConfirmed] = useState<SavePlanResult | null>(null);
-  const [compact, setCompact] = useState(false);
   const [topH, setTopH] = useState(0);
   const topRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
-  const quietUntil = useRef(0);
 
   // 3生活日を過ぎたやり残しを保留へ移す
   useEffect(() => {
@@ -87,32 +87,13 @@ export function DayView() {
     });
   }, [today]);
 
-  // 見出しは画面の上に重ねて固定。広げたときの高さぶん、ページの上を空けておく（畳んでも変えない）
+  // 見出しは画面の上に重ねて固定。その高さぶん、ページの上を空けておく
   useLayoutEffect(() => {
     const el = topRef.current;
     if (!el) return;
-    const was = el.classList.contains('compact');
-    el.classList.remove('compact');
     setTopH(el.offsetHeight);
-    if (was) el.classList.add('compact');
   });
 
-  // 下へスクロールすると候補と今週の合計を畳み、少し戻すと開く（自動のスクロールでは畳まない）
-  useEffect(() => {
-    let last = window.scrollY;
-    const onScroll = () => {
-      const y = window.scrollY;
-      if (Date.now() < quietUntil.current) {
-        last = y;
-        return;
-      }
-      if (y > last + 6 && y > 60) setCompact(true);
-      else if (y < last - 6 || y < 20) setCompact(false);
-      last = y;
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   const view = data?.view ?? DEFAULT_VIEW;
   const nowMin = minutesIntoLifeDay(now) + 4 * 60;
@@ -120,8 +101,6 @@ export function DayView() {
   const scrollToMinute = (m: number, smooth = false) => {
     const grid = document.querySelector('.cal-grid');
     if (!grid) return;
-    quietUntil.current = Date.now() + (smooth ? 900 : 300);
-    setCompact(false);
     const y = grid.getBoundingClientRect().top + window.scrollY + (m - view.start * 60) * PX_PER_MIN - (topRef.current?.offsetHeight ?? 0) - 8;
     window.scrollTo({ top: Math.max(0, y), behavior: smooth ? 'smooth' : 'auto' });
   };
@@ -154,6 +133,7 @@ export function DayView() {
       status: i.status,
       isNext: next?.id === i.id,
       first: i.firstStep,
+      cue: i.cue,
     })),
   ];
   // 今日は「いま」より後だけ。明日は表示する時間帯の全体
@@ -205,7 +185,9 @@ export function DayView() {
           ? started
             ? `${jstTime(toDate(started.value))} に始めました`
             : next
-              ? '黒い予定が次の行き先'
+              ? plan?.prep
+                ? `昨夜の準備：${plan.prep.text}${plan.prep.doneAt ? '（済）' : ''}`
+                : '黒い予定が次の行き先'
               : '空きをタップするか、候補を持って時刻をタップして今日を組む'
           : '「空き」をタップして埋める。候補を持って時刻をタップでもOK';
 
@@ -213,7 +195,7 @@ export function DayView() {
 
   return (
     <>
-      <div ref={topRef} className={`cal-top${compact ? ' compact' : ''}`}>
+      <div ref={topRef} className="cal-top">
         <div className="seg" role="tablist" aria-label="今日と明日">
           {(['today', 'tomorrow'] as const).map((d) => (
             <button
@@ -259,7 +241,7 @@ export function DayView() {
             )}
           </div>
         </div>
-        {/* 下へスクロールしたときに畳むのは「今週の合計」だけ。候補は遅い時間帯にも置けるよう常に出しておく */}
+        {/* 見出し（今週の合計・候補・案内）はスクロールしても畳まず、常に表示する（2026-11-08） */}
         <div className="cal-collapse">
           <div className="row-scroll">
             <span className="week-chip muted" style={{ paddingLeft: 0 }}>
@@ -356,7 +338,8 @@ export function DayView() {
                   <small>{selItem.doneAt ? `${jstTime(toDate(selItem.doneAt))} に済` : '済'}</small>
                 ) : (
                   <button className="link" onClick={() => setSheet('first')}>
-                    最初の一手：{selItem.firstStep || '（タップして書く）'}
+                    {selItem.cue ? `${selItem.cue} → ` : '最初の一手：'}
+                    {selItem.firstStep || '（タップして書く）'}
                   </button>
                 )
               ) : (
@@ -378,17 +361,34 @@ export function DayView() {
           </div>
         ) : day === 'today' ? (
           next ? (
-            <div className="cal-two">
-              <button
-                className="btn-next"
-                onClick={() => db.drafts.put({ key: `started:${today}:${next.id}`, value: nowIso(), updatedAt: nowIso() })}
-              >
-                最初の一手を始める
-              </button>
-              <button className="btn" style={{ fontWeight: 700 }} onClick={() => setDoneFor(next)}>
-                済をつける
-              </button>
-            </div>
+            started ? (
+              <FiveMinutes
+                key={started.key}
+                startedAt={started.value}
+                continued={data.continued.some((c) => c.key === `continue:${today}:${next.id}`)}
+                onContinue={() => db.drafts.put({ key: `continue:${today}:${next.id}`, value: nowIso(), updatedAt: nowIso() })}
+                onDone={() => setDoneFor(next)}
+              />
+            ) : (
+              <div className="stack" style={{ gap: 4 }}>
+                {next.cue && (
+                  <span className="small" style={{ textAlign: 'center' }}>
+                    <b>{next.cue}</b> → {next.firstStep || '始める'}
+                  </span>
+                )}
+                <div className="cal-two">
+                  <button
+                    className="btn-next"
+                    onClick={() => db.drafts.put({ key: `started:${today}:${next.id}`, value: realNowIso(), updatedAt: nowIso() })}
+                  >
+                    5分だけ始める
+                  </button>
+                  <button className="btn" style={{ fontWeight: 700 }} onClick={() => setDoneFor(next)}>
+                    済をつける
+                  </button>
+                </div>
+              </div>
+            )
           ) : (
             <button className="btn" onClick={() => setSheet('reflect')}>
               今日の振り返り（答え合わせ・ジャーナル）
@@ -439,9 +439,10 @@ export function DayView() {
         <FirstStepSheet
           key={selItem.id}
           initial={selItem.firstStep}
+          initialCue={selItem.cue ?? ''}
           title={selItem.title}
-          onSave={async (v) => {
-            await editFirstStep(date, selItem.id, v.trim());
+          onSave={async (v, cue) => {
+            await editStart(date, selItem.id, { firstStep: v.trim(), cue: cue.trim() });
             setSheet(null);
           }}
           onClose={() => setSheet(null)}
@@ -457,6 +458,7 @@ export function DayView() {
               {items[0].firstStep && <span style={{ fontSize: 14 }}>最初の一手：{items[0].firstStep}</span>}
             </section>
           )}
+          {items[0] && <PrepCard key={date} date={date} title={items[0].title} prep={plan?.prep} />}
           <NightFinishedExtras />
           {confirmed.ping === 'failed' && <p className="small muted">計画した日付をサーバーに送れませんでした。次回もう一度送ります。</p>}
           {confirmed.backup === 'failed' && <p className="small muted">自動バックアップに失敗しました。次回もう一度行います。</p>}
@@ -491,16 +493,34 @@ export function DayView() {
   );
 }
 
-function FirstStepSheet({ initial, title, onSave, onClose }: { initial: string; title: string; onSave: (v: string) => void; onClose: () => void }) {
+function FirstStepSheet({
+  initial,
+  initialCue,
+  title,
+  onSave,
+  onClose,
+}: {
+  initial: string;
+  initialCue: string;
+  title: string;
+  onSave: (v: string, cue: string) => void;
+  onClose: () => void;
+}) {
   const [v, setV] = useState(initial);
+  const [cue, setCue] = useState(initialCue);
   return (
-    <Sheet onClose={onClose} label="最初の一手">
+    <Sheet onClose={onClose} label="始め方">
       <span className="sub">{title}</span>
+      <label className="field">
+        <span>きっかけ（〜したら）</span>
+        <input className="input" value={cue} onChange={(e) => setCue(e.target.value)} placeholder="例：帰宅して靴を脱いだら" />
+        <span className="small muted">時刻ではなく、毎日必ずする行動と結びつけると、迷わず始めやすくなります。</span>
+      </label>
       <label className="field">
         <span>最初の一手</span>
         <input className="input" value={v} onChange={(e) => setV(e.target.value)} placeholder="例：バッグを持って家を出る" />
       </label>
-      <button className="btn-primary" onClick={() => onSave(v)}>
+      <button className="btn-primary" onClick={() => onSave(v, cue)}>
         保存
       </button>
       <button className="btn-ghost" onClick={onClose}>
@@ -597,5 +617,80 @@ function FixedSheet({
         閉じる
       </button>
     </Sheet>
+  );
+}
+
+/** 5分だけで始める：5分たったら「続ける／ここで済にする」を選ぶ。5分でやめてもよい */
+function FiveMinutes({ startedAt, continued, onContinue, onDone }: { startedAt: string; continued: boolean; onContinue: () => void; onDone: () => void }) {
+  // タイマーは本物の時計の経過時間で数える（開始時刻も realNowIso で記録している）
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => tick((n) => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const elapsed = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
+  const mm = Math.floor(elapsed / 60);
+  const ss = String(elapsed % 60).padStart(2, '0');
+  if (elapsed >= 300 && !continued) {
+    return (
+      <div className="stack" style={{ gap: 4 }}>
+        <span className="small" style={{ textAlign: 'center' }}>
+          5分たちました。ここでやめても大丈夫です。
+        </span>
+        <div className="cal-two">
+          <button className="btn-next" onClick={onContinue}>
+            続ける
+          </button>
+          <button className="btn" style={{ fontWeight: 700 }} onClick={onDone}>
+            ここで済にする
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="cal-two">
+      <div className="stack" style={{ gap: 0, justifyContent: 'center', alignItems: 'center' }}>
+        <span className="mono" style={{ fontSize: 20, fontWeight: 600 }}>
+          {mm}:{ss}
+        </span>
+        <span className="small muted">{continued ? '続けています' : '5分でやめてもOK'}</span>
+      </div>
+      <button className="btn" style={{ fontWeight: 700 }} onClick={onDone}>
+        済をつける
+      </button>
+    </div>
+  );
+}
+
+/** 前の晩の準備：明日の最初の行き先のために、今夜できることを1つ */
+function PrepCard({ date, title, prep }: { date: string; title: string; prep?: { text: string; doneAt?: string } }) {
+  const [text, setText] = useState(prep?.text ?? '');
+  if (prep?.doneAt) {
+    return (
+      <div className="card">
+        <span className="label">今夜の準備</span>
+        <span>
+          {prep.text} <span className="stamp" style={{ marginLeft: 6 }}>済</span>
+        </span>
+        <span className="small muted">明日の朝の手間が1つ減りました。</span>
+      </div>
+    );
+  }
+  return (
+    <div className="card">
+      <span className="label">今夜できる準備を1つ</span>
+      <span className="small muted">「{title}」を始める前の手間を、今夜のうちに1つ済ませておきます（例：バッグを玄関に置く、試行モデルを生成しておく）。</span>
+      <input className="input" value={text} placeholder="例：バッグを玄関に置く" onChange={(e) => setText(e.target.value)} />
+      <div className="cal-two">
+        <button className="btn-next" disabled={!text.trim()} onClick={() => setPrep(date, { text, doneAt: nowIso() })}>
+          今夜やった
+        </button>
+        <button className="btn" disabled={!text.trim()} onClick={() => setPrep(date, { text })}>
+          寝る前にやる
+        </button>
+      </div>
+      {prep && !prep.doneAt && <span className="small muted">「{prep.text}」を寝る前にやる予定です。</span>}
+    </div>
   );
 }

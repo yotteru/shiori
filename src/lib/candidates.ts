@@ -18,6 +18,8 @@ export interface Candidate {
   firstStep: string;
   /** 前回の続き */
   lastNote?: { text: string; at: string };
+  /** きっかけ（「〜したら」） */
+  cue?: string;
   /** やり残しから来た場合 */
   leftoverId?: string;
   fromLifeDate?: string;
@@ -73,6 +75,7 @@ export function buildCandidates({ today, tracks, steps, leftovers }: CandidateIn
       title: l.item.title,
       minutes: l.item.minutes,
       firstStep: l.item.firstStep,
+      cue: l.item.cue,
       lastNote: track.lastNote,
       leftoverId: l.id,
       fromLifeDate: l.fromLifeDate,
@@ -110,6 +113,7 @@ export function buildCandidates({ today, tracks, steps, leftovers }: CandidateIn
       title: track.name,
       minutes: track.defaultMinutes ?? DEFAULT_HABIT_MINUTES,
       firstStep: track.defaultFirstStep ?? '',
+      cue: track.defaultCue,
       lastNote: track.lastNote,
     });
   }

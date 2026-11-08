@@ -19,6 +19,7 @@ export interface CalBlock {
   status?: 'planned' | 'done' | 'undone';
   isNext?: boolean;
   first?: string;
+  cue?: string;
 }
 
 export function Calendar({
@@ -221,7 +222,9 @@ export function Calendar({
               <span className="tt" ref={fitTitle}>
                 {b.title}
               </span>
-              {b.isNext && b.first && b.min >= 60 && <span className="first">最初の一手：{b.first}</span>}
+              {b.isNext && (b.first || b.cue) && b.min >= 60 && (
+                <span className="first">{b.cue ? `${b.cue} → ${b.first || '始める'}` : `最初の一手：${b.first}`}</span>
+              )}
               {b.status === 'done' && <span className="stamp-s">済</span>}
             </div>
           );
