@@ -4,10 +4,10 @@ import { formatDuration } from '../lib/calendar';
 import { lastDoneByTrack } from '../lib/candidates';
 import { db } from '../lib/db';
 import { addDays, lifeDate } from '../lib/lifeDate';
-import { weeklyHistory } from '../lib/records';
+import { weeklyHistory, weeklyStarts } from '../lib/records';
 import { daysSinceTouched } from '../lib/tracks';
 
-// 記録タブ（2026-11-08）：眺める・振り返る場所。済をつけた時間だけを数える
+// 記録タブ（2026-11-08）：眺める・振り返る場所。やった時間（始めた記録があれば実際の時間）と、始めた回数
 
 const shortDate = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
 
@@ -15,7 +15,7 @@ export function Records() {
   const now = useNow();
   const today = lifeDate(now);
   const data = useLive(
-    async () => ({ plans: await db.plans.toArray(), tracks: await db.tracks.toArray(), steps: await db.steps.toArray() }),
+    async () => ({ plans: await db.plans.toArray(), tracks: await db.tracks.toArray(), steps: await db.steps.toArray(), starts: await db.starts.toArray() }),
     [],
   );
   const [tip, setTip] = useState<{ x: number; y: number; value: string; label: string } | null>(null);
@@ -27,7 +27,9 @@ export function Records() {
   if (!data) return null;
 
   const tracks = data.tracks.filter((t) => !t.archivedAt);
-  const hist = weeklyHistory(data.plans, today);
+  const hist = weeklyHistory(data.plans, today, 8, data.starts);
+  const counts = weeklyStarts(data.starts, hist.weeks);
+  const startsThisWeek = (id: string) => counts.byTrack[id]?.[7] ?? 0;
   const thisWeek = (id: string) => hist.byTrack[id]?.[7] ?? 0;
   const ranked = tracks.slice().sort((a, b) => thisWeek(b.id) - thisWeek(a.id));
   const maxWeek = Math.max(60, ...ranked.map((t) => thisWeek(t.id)));
@@ -49,7 +51,7 @@ export function Records() {
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span className="label">今週の時間</span>
             <span className="small muted mono">
-              済の合計・{shortDate(monday)}〜{shortDate(addDays(monday, 6))}
+              {shortDate(monday)}〜{shortDate(addDays(monday, 6))}
             </span>
           </div>
           <div className="hbars">
@@ -73,7 +75,26 @@ export function Records() {
               );
             })}
           </div>
-          <span className="small muted">置いただけの予定は数えず、済をつけた時間だけを足しています。</span>
+          <span className="small muted">
+            「5分だけ始める」から始めたものは実際にやった時間（ここまでにした分も含む）、始めずに済をつけたものは予定の長さで数えます。置いただけの予定は数えません。
+          </span>
+        </section>
+      )}
+
+      {(tracks.length > 0 || counts.quick[7] > 0) && (
+        <section className="viz-card" aria-label="今週始めた回数">
+          <span className="label">今週始めた回数</span>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+            {ranked.map((t) => (
+              <span key={t.id} className="week-chip">
+                <b>{t.name}</b> <span className="mono">{startsThisWeek(t.id)}回</span>
+              </span>
+            ))}
+            <span className="week-chip">
+              <b>その場の5分</b> <span className="mono">{counts.quick[7]}回</span>
+            </span>
+          </div>
+          <span className="small muted">「5分だけ始める」を押した回数です。5分でやめた日も1回です。</span>
         </section>
       )}
 
@@ -112,10 +133,10 @@ export function Records() {
               </>
             )}
             <div className="row small" style={{ justifyContent: 'space-between', marginTop: 4 }}>
-              <span className="muted">週ごとの済の時間（直近8週）</span>
+              <span className="muted">週ごとのやった時間（直近8週）</span>
               <span className="mono muted">合計 {formatDuration(total)}</span>
             </div>
-            <div className="cols" role="img" aria-label={`${t.name}の直近8週の済の時間`}>
+            <div className="cols" role="img" aria-label={`${t.name}の直近8週のやった時間`}>
               {weeks.map((v, i) => {
                 const h = (v / mx) * 100;
                 const label = `${t.name}・${i === 7 ? '今週' : `${labels[i]} の週`}`;

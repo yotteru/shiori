@@ -96,6 +96,32 @@ export interface PlanItem {
   cue?: string;
 }
 
+/**
+ * 始めた記録（2026-11-08「5分だけで始める」の見直し）。
+ * 計画の行き先から始めたとき（planItemId・trackId あり）と、計画なしの「その場の5分」（quick）がある。
+ * 時間は始めてから「済」「ここまで」までの実際の時間で数える。回数は1件 = 1回
+ */
+export interface StartSession {
+  id: string;
+  /** 始めた生活日 */
+  lifeDate: string;
+  /** 始めた実時刻 */
+  startedAt: string;
+  /** 終えた実時刻（済・ここまで） */
+  endedAt?: string;
+  outcome?: 'done' | 'stopped';
+  /** ここまでにした理由（任意のワンタップ） */
+  reason?: string;
+  title: string;
+  planItemId?: string;
+  trackId?: string;
+  /** 計画なしの「その場の5分」（仕事など）。取り組みの合計には入れず、回数だけ数える */
+  quick?: boolean;
+  /** 5分後の知らせの予約（取り消し用） */
+  pushId?: string;
+  updatedAt?: string;
+}
+
 /** ジャーナル（1生活日に1件） */
 export interface Journal {
   lifeDate: string;
@@ -125,6 +151,10 @@ export interface Meta {
   syncEnabled?: boolean;
   /** カレンダーに表示する時間帯（時）と、開いたときの位置（時）。端末ごと */
   calendarView?: { start: number; end: number; focus: number };
+  /** 「始める」でショートカット（集中モード）を呼ぶか。端末ごと */
+  focusShortcut?: boolean;
+  /** 「ここまで」の理由の候補。端末ごと */
+  stopReasons?: string[];
   /** 同期で最後に取り込んだサーバー時刻 */
   syncCursor?: string;
   lastSyncAt?: string;
