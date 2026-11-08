@@ -27,11 +27,15 @@ import {
   setHoliday,
 } from '../lib/calendarActions';
 import { buildCandidates, candidateKey, lastDoneByTrack, morningCandidates, type Candidate } from '../lib/candidates';
-import { nowIso, realNowIso, toDate } from '../lib/clock';
+import { nowIso, toDate } from '../lib/clock';
 import { db, getMeta } from '../lib/db';
 import { shelveExpired } from '../lib/leftovers';
+import { cancelPush, pushPermission, schedulePush } from '../lib/push';
+import { activeSession } from '../lib/records';
+import { SHORTCUT_START, shortcutUrl } from '../lib/shortcut';
+import { DEFAULT_STOP_REASONS, discardSession, endSession, setSessionPush, startSession, stopSession } from '../lib/starts';
 import { addDays, formatLifeDateJa, jstTime, lifeDate, minutesIntoLifeDay, weekday } from '../lib/lifeDate';
-import type { Plan, PlanItem } from '../lib/types';
+import type { Plan, PlanItem, StartSession } from '../lib/types';
 import { NightFinishedExtras } from './Backup';
 import { Calendar, PX_PER_MIN, type CalBlock } from './Calendar';
 import { MinutesSelect, Sheet, TimeSelect, Toast } from './common';
@@ -41,7 +45,7 @@ import { JournalCard, ReviewCard } from './Reflection';
 // しおりタブ（2026-11-08 カレンダー版）。「今日」「明日」をいつでも切り替えて、縦のカレンダーで組む
 
 type Day = 'today' | 'tomorrow';
-type SheetKind = null | 'fixed' | 'reflect' | 'yesterday' | 'first' | 'confirmed';
+type SheetKind = null | 'fixed' | 'reflect' | 'yesterday' | 'first' | 'confirmed' | 'quick' | 'stop';
 const TAB_H = 56;
 
 export function DayView() {
@@ -61,9 +65,8 @@ export function DayView() {
       steps: await db.steps.toArray(),
       leftovers: await db.leftovers.toArray(),
       routines: await db.routines.toArray(),
-      view: (await getMeta()).calendarView ?? DEFAULT_VIEW,
-      started: await db.drafts.where('key').startsWith(`started:${today}:`).toArray(),
-      continued: await db.drafts.where('key').startsWith(`continue:${today}:`).toArray(),
+      meta: await getMeta(),
+      starts: await db.starts.toArray(),
     }),
     [date, today],
   );
@@ -95,7 +98,7 @@ export function DayView() {
   });
 
 
-  const view = data?.view ?? DEFAULT_VIEW;
+  const view = data?.meta.calendarView ?? DEFAULT_VIEW;
   const nowMin = minutesIntoLifeDay(now) + 4 * 60;
 
   const scrollToMinute = (m: number, smooth = false) => {
@@ -145,10 +148,33 @@ export function DayView() {
   const placedKeys = new Set(items.map((i) => candidateKey(i.trackId, i.stepId)));
   const heldCand = cands.find((c) => c.key === held);
 
-  const weekly = weeklyDoneMinutes(data.plans, today);
+  const weekly = weeklyDoneMinutes(data.plans, today, data.starts);
   const activeTracks = data.tracks.filter((t) => !t.archivedAt);
   const pendingYesterday = data.yesterday?.items.some((i) => i.status === 'planned') ? data.yesterday : undefined;
-  const started = next ? data.started.find((s) => s.key === `started:${today}:${next.id}`) : undefined;
+  // 始めて、まだ終えていないもの（画面のタイマーは置かない。2026-11-08）
+  const active = activeSession(data.starts);
+  const activeItem = active?.planItemId ? data.plans.flatMap((p) => p.items).find((i) => i.id === active.planItemId) : undefined;
+
+  const begin = async (input: Pick<StartSession, 'title' | 'planItemId' | 'trackId' | 'quick'>) => {
+    const s = await startSession({ lifeDate: today, ...input });
+    // 5分後の知らせ（Web プッシュ）。通知の準備がない・圏外のときは、知らせなしで始める
+    const pushId = await schedulePush('five_min', 300);
+    if (pushId) await setSessionPush(s.id, pushId);
+    else
+      setToast({
+        message:
+          pushPermission() === 'granted'
+            ? '5分の知らせを予約できませんでした（電波を確かめてください）'
+            : '設定の「5分の知らせ」で通知を受け取ると、5分後に知らせます',
+      });
+    // 集中モード（ショートカット「しおり5分」）。しおりには戻らないので、そのまま画面を消せばよい
+    if (data.meta.focusShortcut) window.location.href = shortcutUrl(SHORTCUT_START, input.title);
+  };
+
+  const finish = async (s: StartSession, outcome: 'done' | 'stopped') => {
+    if (s.pushId) void cancelPush(s.pushId);
+    if (outcome === 'done') await endSession(s.id, 'done');
+  };
 
   const selected = sel ? blocks.find((b) => b.id === sel) : undefined;
   const selItem = sel?.startsWith('item:') ? items.find((i) => `item:${i.id}` === sel) : undefined;
@@ -182,8 +208,8 @@ export function DayView() {
       : selected
         ? '本体をドラッグで移動、上下の丸で開始・終了（30分から15分刻み）'
         : day === 'today'
-          ? started
-            ? `${jstTime(toDate(started.value))} に始めました`
+          ? active
+            ? `${jstTime(toDate(active.startedAt))} に「${active.title}」を始めました`
             : next
               ? plan?.prep
                 ? `昨夜の準備：${plan.prep.text}${plan.prep.doneAt ? '（済）' : ''}`
@@ -245,7 +271,7 @@ export function DayView() {
         <div className="cal-collapse">
           <div className="row-scroll">
             <span className="week-chip muted" style={{ paddingLeft: 0 }}>
-              今週（済）
+              今週
             </span>
             {activeTracks.map((t) => (
               <span key={t.id} className="week-chip" style={{ background: t.type === 'habit' ? '#e3f2f0' : '#fdebdf' }}>
@@ -367,39 +393,54 @@ export function DayView() {
             </div>
           </div>
         ) : day === 'today' ? (
-          next ? (
-            started ? (
-              <FiveMinutes
-                key={started.key}
-                startedAt={started.value}
-                continued={data.continued.some((c) => c.key === `continue:${today}:${next.id}`)}
-                onContinue={() => db.drafts.put({ key: `continue:${today}:${next.id}`, value: nowIso(), updatedAt: nowIso() })}
-                onDone={() => setDoneFor(next)}
-              />
-            ) : (
-              <div className="stack" style={{ gap: 4 }}>
-                {next.cue && (
-                  <span className="small" style={{ textAlign: 'center' }}>
-                    <b>{next.cue}</b> → {next.firstStep || '始める'}
-                  </span>
-                )}
-                <div className="cal-two">
-                  <button
-                    className="btn-next"
-                    onClick={() => db.drafts.put({ key: `started:${today}:${next.id}`, value: realNowIso(), updatedAt: nowIso() })}
-                  >
-                    5分だけ始める
-                  </button>
-                  <button className="btn" style={{ fontWeight: 700 }} onClick={() => setDoneFor(next)}>
-                    済をつける
-                  </button>
-                </div>
+          active ? (
+            <div className="stack" style={{ gap: 4 }}>
+              <span className="small" style={{ textAlign: 'center' }}>
+                {jstTime(toDate(active.startedAt))} に始めました。スマホを置いてどうぞ（5分でやめてもOK）
+              </span>
+              <div className="cal-two">
+                <button
+                  className="btn-next"
+                  onClick={async () => {
+                    if (activeItem && activeItem.status === 'planned') {
+                      setDoneFor(activeItem);
+                      return;
+                    }
+                    await finish(active, 'done');
+                    setToast({ message: '済にしました' });
+                  }}
+                >
+                  済
+                </button>
+                <button className="btn" style={{ fontWeight: 700 }} onClick={() => setSheet('stop')}>
+                  ここまで
+                </button>
               </div>
-            )
+            </div>
+          ) : next ? (
+            <div className="stack" style={{ gap: 4 }}>
+              {next.cue && (
+                <span className="small" style={{ textAlign: 'center' }}>
+                  <b>{next.cue}</b> → {next.firstStep || '始める'}
+                </span>
+              )}
+              <div className="cal-two">
+                <button className="btn-next" onClick={() => void begin({ title: next.title, planItemId: next.id, trackId: next.trackId })}>
+                  5分だけ始める
+                </button>
+                <button className="btn" style={{ fontWeight: 700 }} onClick={() => setDoneFor(next)}>
+                  済をつける
+                </button>
+              </div>
+              <QuickLink onClick={() => setSheet('quick')} />
+            </div>
           ) : (
-            <button className="btn" onClick={() => setSheet('reflect')}>
-              今日の振り返り（答え合わせ・ジャーナル）
-            </button>
+            <div className="stack" style={{ gap: 4 }}>
+              <button className="btn" onClick={() => setSheet('reflect')}>
+                今日の振り返り（答え合わせ・ジャーナル）
+              </button>
+              <QuickLink onClick={() => setSheet('quick')} />
+            </div>
           )
         ) : (
           <button
@@ -473,12 +514,40 @@ export function DayView() {
           </button>
         </Sheet>
       )}
+      {sheet === 'quick' && (
+        <QuickSheet
+          onStart={async (title) => {
+            setSheet(null);
+            await begin({ title, quick: true });
+          }}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet === 'stop' && active && (
+        <StopSheet
+          session={active}
+          reasons={data.meta.stopReasons ?? DEFAULT_STOP_REASONS}
+          onStop={async (reason, note) => {
+            await finish(active, 'stopped');
+            await stopSession(active.id, reason, note);
+            setSheet(null);
+            setToast({ message: 'ここまでにしました。始めた1回として残ります' });
+          }}
+          onDiscard={async () => {
+            if (active.pushId) void cancelPush(active.pushId);
+            await discardSession(active.id);
+            setSheet(null);
+          }}
+          onClose={() => setSheet(null)}
+        />
+      )}
       {doneFor && (
         <DoneSheet
           item={doneFor}
           lifeDate={date}
           onClose={() => setDoneFor(null)}
           onDone={() => {
+            if (active && active.planItemId === doneFor.id) void finish(active, 'done');
             setToast({ message: '済をつけました', undoId: doneFor.id });
             setDoneFor(null);
           }}
@@ -619,46 +688,89 @@ function FixedSheet({
   );
 }
 
-/** 5分だけで始める：5分たったら「続ける／ここで済にする」を選ぶ。5分でやめてもよい */
-function FiveMinutes({ startedAt, continued, onContinue, onDone }: { startedAt: string; continued: boolean; onContinue: () => void; onDone: () => void }) {
-  // タイマーは本物の時計の経過時間で数える（開始時刻も realNowIso で記録している）
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => tick((n) => n + 1), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-  const elapsed = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
-  const mm = Math.floor(elapsed / 60);
-  const ss = String(elapsed % 60).padStart(2, '0');
-  if (elapsed >= 300 && !continued) {
-    return (
-      <div className="stack" style={{ gap: 4 }}>
-        <span className="small" style={{ textAlign: 'center' }}>
-          5分たちました。ここでやめても大丈夫です。
-        </span>
-        <div className="cal-two">
-          <button className="btn-next" onClick={onContinue}>
-            続ける
-          </button>
-          <button className="btn" style={{ fontWeight: 700 }} onClick={onDone}>
-            ここで済にする
-          </button>
+function QuickLink({ onClick }: { onClick: () => void }) {
+  return (
+    <button className="btn-ghost" style={{ minHeight: 32 }} onClick={onClick}>
+      ＋ その場の5分（計画にないこと）
+    </button>
+  );
+}
+
+/** その場の5分：計画にないこと（仕事など）を、名前1行だけで始める */
+function QuickSheet({ onStart, onClose }: { onStart: (title: string) => void; onClose: () => void }) {
+  const [title, setTitle] = useState('');
+  return (
+    <Sheet onClose={onClose} label="その場の5分">
+      <span style={{ fontSize: 18, fontWeight: 700 }}>その場の5分</span>
+      <span className="sub">計画にないこと（仕事など）を、とりあえず5分だけ始めます。回数だけ記録し、取り組みの時間には入れません。</span>
+      <label className="field">
+        <span>何をする？</span>
+        <input className="input" value={title} placeholder="例：見積書の下書き" onChange={(e) => setTitle(e.target.value)} />
+      </label>
+      <button className="btn-next" disabled={!title.trim()} onClick={() => onStart(title.trim())}>
+        5分だけ始める
+      </button>
+      <button className="btn-ghost" onClick={onClose}>
+        やめる
+      </button>
+    </Sheet>
+  );
+}
+
+/** ここまで：やめるのは約束どおり。「次はここから」と理由はどちらも任意 */
+function StopSheet({
+  session,
+  reasons,
+  onStop,
+  onDiscard,
+  onClose,
+}: {
+  session: StartSession;
+  reasons: string[];
+  onStop: (reason: string | undefined, note: string) => void;
+  onDiscard: () => void;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState<string | undefined>();
+  const [note, setNote] = useState('');
+  return (
+    <Sheet onClose={onClose} label="ここまでにする">
+      <div className="head">
+        <span className="sub">ここまでにする</span>
+        <span style={{ fontSize: 18, fontWeight: 700 }}>{session.title}</span>
+      </div>
+      <span className="small muted">始めたこと自体が1回として残ります。行き先は未のまま残るので、あとで続きからできます。</span>
+      {session.trackId && (
+        <label className="field">
+          <span>次はここから（空欄でも大丈夫）</span>
+          <input className="input" value={note} placeholder="例：配管が壁を跨ぐときの判定から" onChange={(e) => setNote(e.target.value)} />
+        </label>
+      )}
+      <div className="field">
+        <span>理由（選ばなくても大丈夫）</span>
+        <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+          {reasons.map((r) => (
+            <button
+              key={r}
+              className={`chip-btn${reason === r ? ' accent' : ''}`}
+              aria-pressed={reason === r}
+              onClick={() => setReason(reason === r ? undefined : r)}
+            >
+              {r}
+            </button>
+          ))}
         </div>
       </div>
-    );
-  }
-  return (
-    <div className="cal-two">
-      <div className="stack" style={{ gap: 0, justifyContent: 'center', alignItems: 'center' }}>
-        <span className="mono" style={{ fontSize: 20, fontWeight: 600 }}>
-          {mm}:{ss}
-        </span>
-        <span className="small muted">{continued ? '続けています' : '5分でやめてもOK'}</span>
-      </div>
-      <button className="btn" style={{ fontWeight: 700 }} onClick={onDone}>
-        済をつける
+      <button className="btn-primary" onClick={() => onStop(reason, note)}>
+        ここまでにする
       </button>
-    </div>
+      <button className="btn-ghost" onClick={onClose}>
+        まだ続ける
+      </button>
+      <button className="btn-ghost" onClick={onDiscard}>
+        間違えて始めた（記録を消す）
+      </button>
+    </Sheet>
   );
 }
 

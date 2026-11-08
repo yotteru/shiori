@@ -9,6 +9,7 @@ import {
   type Meta,
   type Plan,
   type Routine,
+  type StartSession,
   type Step,
   type Track,
 } from './types';
@@ -60,6 +61,8 @@ export class ShioriDB extends Dexie {
   outbox!: Table<OutboxEntry, string>;
   /** いつもの固定（同期する） */
   routines!: Table<Routine, string>;
+  /** 始めた記録（同期する） */
+  starts!: Table<StartSession, string>;
 
   constructor(name = 'shiori') {
     super(name);
@@ -76,6 +79,7 @@ export class ShioriDB extends Dexie {
     this.version(2).stores({ secrets: 'id' });
     this.version(3).stores({ outbox: 'key' });
     this.version(4).stores({ routines: 'id' });
+    this.version(5).stores({ starts: 'id, lifeDate' });
     installSyncMiddleware(this);
   }
 }
