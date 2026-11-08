@@ -159,6 +159,9 @@ begin
     raise exception 'FAIL: 決められていない種類を受け付けた';
   exception when check_violation then null;
   end;
+  -- いつもの固定（0004 で追加）
+  perform public.push_records('[{"kind":"routine","record_id":"r1","ciphertext":"c","iv":"i","client_updated_at":"2026-11-08T10:00:00Z"}]'::jsonb);
+  assert exists (select 1 from public.encrypted_records where kind = 'routine'), 'routine を受け付ける';
   insert into public.sync_keys (salt, check_ciphertext, check_iv) values ('s', 'c', 'i');
 end $$;
 

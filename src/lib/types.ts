@@ -39,8 +39,36 @@ export interface Plan {
   window: { start: string; end: string };
   createdAt: string;
   source: 'night' | 'morning-quick';
-  /** 並び順 = 実行順 */
+  /** 並び順。2026-11-08 からは各行き先の開始時刻（start）の順が実行順 */
   items: PlanItem[];
+  /** いつもの固定への、この日だけの変更（動かした時刻、または外した） */
+  fixedEdits?: Record<string, { start: number; min: number } | 'removed'>;
+  /** この日だけの固定の予定（例：歯医者） */
+  extraFixed?: ExtraFixed[];
+  /** 祝日・有休など、この日を休日として扱う */
+  holiday?: boolean;
+  updatedAt?: string;
+}
+
+/** この日だけの固定の予定 */
+export interface ExtraFixed {
+  id: string;
+  title: string;
+  /** その日の 0:00 からの分（翌日にまたがるときは 1440 以上） */
+  start: number;
+  min: number;
+}
+
+/** いつもの固定（設定タブで決める。曜日ごとに毎日自動で置かれる） */
+export interface Routine {
+  id: string;
+  title: string;
+  /** その日の 0:00 からの分 */
+  start: number;
+  min: number;
+  /** 0 = 日曜 … 6 = 土曜 */
+  days: number[];
+  createdAt: string;
   updatedAt?: string;
 }
 
@@ -58,6 +86,8 @@ export interface PlanItem {
   prevLastNote?: { text: string; at: string } | null;
   /** 同期用：行き先ごとに後から変えた方を残すための実時刻 */
   updatedAt?: string;
+  /** カレンダー上の開始時刻（その日の 0:00 からの分）。古い計画にはないので window から割り付ける */
+  start?: number;
 }
 
 /** ジャーナル（1生活日に1件） */
@@ -87,6 +117,8 @@ export interface Meta {
   pendingPings?: string[];
   /** 端末間の同期を使っているか */
   syncEnabled?: boolean;
+  /** カレンダーに表示する時間帯（時）と、開いたときの位置（時）。端末ごと */
+  calendarView?: { start: number; end: number; focus: number };
   /** 同期で最後に取り込んだサーバー時刻 */
   syncCursor?: string;
   lastSyncAt?: string;

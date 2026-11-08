@@ -10,7 +10,8 @@ import { InputTest, isInputTestOpen } from './ui/InputTest';
 import { ConfigMissing, InstallGuide } from './ui/InstallGuide';
 import { Login } from './ui/Login';
 import { NotifySettings } from './ui/NotifySettings';
-import { Shiori } from './ui/Shiori';
+import { DayView } from './ui/DayView';
+import { CalendarViewSettings, RoutineSettings } from './ui/RoutineSettings';
 import { Onboarding } from './ui/Onboarding';
 import { Settings } from './ui/Settings';
 import { SyncSettings } from './ui/SyncSettings';
@@ -74,12 +75,14 @@ function Main() {
   return (
     <>
       <main className="screen">
-        {view === 'home' && <Shiori />}
+        {view === 'home' && <DayView />}
         {view === 'tracks' && <Tracks />}
         {view === 'settings' && (
           <Settings
             sections={
               <>
+                <RoutineSettings />
+                <CalendarViewSettings />
                 <SyncSettings />
                 <BackupSettings />
                 <ExportSettings />
