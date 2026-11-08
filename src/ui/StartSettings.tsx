@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLive } from '../hooks';
 import { getMeta, updateMeta } from '../lib/db';
-import { focusShortcutUrl, QUICK_FOCUS_MINUTES, SHORTCUT_START } from '../lib/shortcut';
+import { focusShortcutUrl, SHORTCUT_START } from '../lib/shortcut';
 import { DEFAULT_STOP_REASONS } from '../lib/starts';
 
 // 始め方の設定（2026-11-08）：集中モードのショートカットと、「ここまで」の理由の候補。どちらも端末ごと
@@ -24,10 +24,10 @@ export function StartSettings() {
         <a href="https://github.com/yotteru/shiori/blob/main/docs/SHORTCUTS.md" target="_blank" rel="noreferrer">
           手順書
         </a>
-        。集中モードは、予定の長さ（その場の5分は{QUICK_FOCUS_MINUTES}分）たつと自動でオフになります。早く終わったら Apple Watch やコントロールセンターから切ってください。
+        。集中モードは自動では切れないので、終わったら Apple Watch やコントロールセンターから切ってください。
       </span>
       <a className="btn" href={focusShortcutUrl(5)}>
-        ショートカットを試す（5分で自動オフ）
+        ショートカットを試す
       </a>
 
       <span className="label" style={{ marginTop: 8 }}>

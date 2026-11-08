@@ -45,6 +45,7 @@
 4. [supabase/migrations/0004_sync_routines.sql](supabase/migrations/0004_sync_routines.sql)（いつもの固定の同期）
 5. [supabase/migrations/0005_web_push.sql](supabase/migrations/0005_web_push.sql)（5分の知らせ。手順 9 も必要）
 6. [supabase/migrations/0006_sync_starts.sql](supabase/migrations/0006_sync_starts.sql)（始めた記録の同期）
+7. [supabase/migrations/0007_start_reminders.sql](supabase/migrations/0007_start_reminders.sql)（予定の開始時刻の通知。手順 10 も必要）
 
 実行後、次の SQL でジョブが登録されていることを確認します。
 
@@ -118,6 +119,29 @@ update public.notification_state set notify_time = '23:00' where id = 1;
 2. **テスト：1分後** を押し、iPhone の画面を消して待つ → 1〜2分で「テストの通知です」が届けば完了
 3. 集中モード「しおり」でもしおりの通知が届くよう、設定アプリ → 集中モード → しおり →「通知を許可」の App に **しおり** を追加する
 4. 「5分だけ始める」で集中モードもオンにしたいときは、[docs/SHORTCUTS.md](docs/SHORTCUTS.md) のとおりショートカット「しおり5分」を作り、設定 →「始め方」でチェックを入れる
+
+### 10. 予定の開始時刻の通知
+
+カレンダーに置いた今日・明日の行き先の時刻に、iPhone（画面が消えていれば Apple Watch）へ通知します。手順 9 が済んでいることが前提です。
+
+**① SQL を実行する（1回だけ）**
+
+SQL Editor で [supabase/migrations/0007_start_reminders.sql](supabase/migrations/0007_start_reminders.sql) の中身を全部貼り付けて **Run**。
+
+**② 通知を送るプログラムを新しい中身にする（1回だけ）**
+
+1. Supabase ダッシュボード → **Edge Functions** → **push** を開く
+2. 上のタブの **Code**（コード）を開く
+3. 中身を全部消し、https://raw.githubusercontent.com/yotteru/shiori/main/supabase/functions/push/index.ts の中身を全部貼り付ける
+4. **Deploy**（または Save / Update）を押す
+5. **Details** で「Verify JWT」が**オフ**のままか確かめる
+
+**③ しおりで設定する**
+
+設定 →「**予定の開始時刻の通知**」→「開始時刻に知らせる」にチェック。タイミング（ちょうど〜30分前）・対象（すべて／その日の最初だけ）・文面を選ぶ。
+文面に `{行き先}` と書くと行き先の名前が入ります（名前は通知を送るまでサーバーに置かれ、送ったら消えます）。
+
+確かめ方：今日のカレンダーで、数分後の時刻に行き先を置き、画面を消して待つ。
 
 ## 使い方の要点
 

@@ -6,6 +6,11 @@ import { supabase } from './supabase';
 
 export type PushKind = 'five_min' | 'test';
 
+export interface StartReminderPayload {
+  send_at: string;
+  body: string;
+}
+
 export function pushSupported(): boolean {
   return typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
@@ -86,4 +91,13 @@ export async function schedulePush(kind: PushKind, delaySeconds: number): Promis
 
 export async function cancelPush(id: string): Promise<void> {
   await supabase?.rpc('cancel_push', { p_id: id });
+}
+
+/** この端末の「開始時刻の通知」を丸ごと置き換える。送れたら true（未登録・圏外は false） */
+export async function setStartReminders(items: StartReminderPayload[]): Promise<boolean> {
+  if (!supabase) return false;
+  const endpoint = await currentEndpoint();
+  if (!endpoint) return false;
+  const { error } = await supabase.rpc('set_start_reminders', { p_endpoint: endpoint, p_items: items });
+  return !error;
 }
