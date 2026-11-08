@@ -37,6 +37,14 @@ export function candidateKey(trackId: string, stepId?: string): string {
   return stepId ? `step:${stepId}` : `habit:${trackId}`;
 }
 
+/**
+ * 最初の一手（2026-11-08 見直し）：プロジェクト型は前回の「次はここから」をそのまま使い、
+ * なければステップに書いた一手。習慣型は既定の一手のまま
+ */
+function projectFirstStep(track: Track, fallback: string): string {
+  return track.lastNote?.text || fallback;
+}
+
 function activeTracks(tracks: Track[]): Track[] {
   return tracks
     .filter((t) => !t.archivedAt)
@@ -74,7 +82,7 @@ export function buildCandidates({ today, tracks, steps, leftovers }: CandidateIn
       stepId: l.item.stepId,
       title: l.item.title,
       minutes: l.item.minutes,
-      firstStep: l.item.firstStep,
+      firstStep: track.type === 'project' ? projectFirstStep(track, l.item.firstStep) : l.item.firstStep,
       cue: l.item.cue,
       lastNote: track.lastNote,
       leftoverId: l.id,
@@ -97,7 +105,7 @@ export function buildCandidates({ today, tracks, steps, leftovers }: CandidateIn
       stepId: next.id,
       title: next.title,
       minutes: next.minutes,
-      firstStep: next.firstStep,
+      firstStep: projectFirstStep(track, next.firstStep),
       lastNote: track.lastNote,
     });
   }

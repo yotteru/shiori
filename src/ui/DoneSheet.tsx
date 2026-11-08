@@ -22,6 +22,7 @@ export function DoneSheet({ item, lifeDate, onClose, onDone }: { item: PlanItem;
       </div>
       <label className="field">
         <span>次はここから（空欄でも大丈夫）</span>
+        <span className="small muted">次にこの取り組みを置いたとき、最初の一手として出ます。</span>
         <input
           className="input"
           value={note}
