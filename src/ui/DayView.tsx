@@ -337,10 +337,17 @@ export function DayView() {
                 selItem.status === 'done' ? (
                   <small>{selItem.doneAt ? `${jstTime(toDate(selItem.doneAt))} に済` : '済'}</small>
                 ) : (
-                  <button className="link" onClick={() => setSheet('first')}>
-                    {selItem.cue ? `${selItem.cue} → ` : '最初の一手：'}
-                    {selItem.firstStep || '（タップして書く）'}
-                  </button>
+                  selItem.firstStep || selItem.cue ? (
+                    <button className="link" onClick={() => setSheet('first')}>
+                      {selItem.cue ? `${selItem.cue} → ` : '最初の一手：'}
+                      {selItem.firstStep || '始める'}
+                    </button>
+                  ) : (
+                    // 書いていなくても催促しない（2026-11-08）。直したいときだけ開ける
+                    <button className="link" style={{ opacity: 0.7 }} onClick={() => setSheet('first')}>
+                      ＋最初の一手
+                    </button>
+                  )
                 )
               ) : (
                 <small>{selFixed?.routineId ? 'いつもの固定（動かすとこの日だけ変わる）' : 'この日だけの予定'}</small>
@@ -439,10 +446,9 @@ export function DayView() {
         <FirstStepSheet
           key={selItem.id}
           initial={selItem.firstStep}
-          initialCue={selItem.cue ?? ''}
           title={selItem.title}
-          onSave={async (v, cue) => {
-            await editStart(date, selItem.id, { firstStep: v.trim(), cue: cue.trim() });
+          onSave={async (v) => {
+            await editStart(date, selItem.id, { firstStep: v.trim() });
             setSheet(null);
           }}
           onClose={() => setSheet(null)}
@@ -495,32 +501,25 @@ export function DayView() {
 
 function FirstStepSheet({
   initial,
-  initialCue,
   title,
   onSave,
   onClose,
 }: {
   initial: string;
-  initialCue: string;
   title: string;
-  onSave: (v: string, cue: string) => void;
+  onSave: (v: string) => void;
   onClose: () => void;
 }) {
   const [v, setV] = useState(initial);
-  const [cue, setCue] = useState(initialCue);
   return (
-    <Sheet onClose={onClose} label="始め方">
+    <Sheet onClose={onClose} label="最初の一手">
       <span className="sub">{title}</span>
-      <label className="field">
-        <span>きっかけ（〜したら）</span>
-        <input className="input" value={cue} onChange={(e) => setCue(e.target.value)} placeholder="例：帰宅して靴を脱いだら" />
-        <span className="small muted">時刻ではなく、毎日必ずする行動と結びつけると、迷わず始めやすくなります。</span>
-      </label>
       <label className="field">
         <span>最初の一手</span>
         <input className="input" value={v} onChange={(e) => setV(e.target.value)} placeholder="例：バッグを持って家を出る" />
+        <span className="small muted">ふだんは前回の「次はここから」が自動で入ります。この日だけ変えたいときに書き換えてください。</span>
       </label>
-      <button className="btn-primary" onClick={() => onSave(v, cue)}>
+      <button className="btn-primary" onClick={() => onSave(v)}>
         保存
       </button>
       <button className="btn-ghost" onClick={onClose}>

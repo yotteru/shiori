@@ -97,6 +97,14 @@ describe('候補の作成（受け入れテスト 2）', () => {
     expect([gym?.minutes, gym?.firstStep]).toEqual([90, 'バッグを持って家を出る']);
   });
 
+  it('プロジェクト型の最初の一手は前回の「次はここから」。なければステップの一手', () => {
+    const cands = buildCandidates({ today, tracks, steps, leftovers: [leftover('L9', 'addin', '2026-11-03', 'a2')] });
+    expect(cands.find((c) => c.trackId === 'addin')?.kind).toBe('leftover');
+    expect(cands.find((c) => c.trackId === 'addin')?.firstStep).toBe('判定が二重');
+    const plain = buildCandidates({ today, tracks: tracks.map((t) => ({ ...t, lastNote: undefined })), steps, leftovers: [] });
+    expect(plain.find((c) => c.trackId === 'addin')?.firstStep).toMatch(/^first-/);
+  });
+
   it('全ステップ完了のプロジェクト型は候補に出ない', () => {
     const cands = buildCandidates({ today, tracks, steps: [step('b1', 'book', 1, 'done')], leftovers: [] });
     expect(cands.some((c) => c.trackId === 'book')).toBe(false);
