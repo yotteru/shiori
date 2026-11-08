@@ -19,6 +19,7 @@ import { formatLifeDateJa, lifeDate } from '../lib/lifeDate';
 import { daysSinceTouched, isStalled } from '../lib/tracks';
 import type { Leftover, Step, Track } from '../lib/types';
 import { MinutesSelect, Sheet } from './common';
+import { MemoBox } from './MemoBox';
 import { emptyTrackForm, isTrackFormValid, TrackForm, trackFormToInput } from './TrackForm';
 
 // 取り組み（§3.5）
@@ -35,6 +36,7 @@ export function Tracks() {
       steps: await db.steps.toArray(),
       plans: await db.plans.toArray(),
       leftovers: await db.leftovers.toArray(),
+      memos: await db.memos.toArray(),
     }),
     [],
   );
@@ -64,6 +66,7 @@ export function Tracks() {
 
       {tab === 'tracks' ? (
         <>
+          <MemoBox memos={data.memos} trackNames={Object.fromEntries(data.tracks.map((t) => [t.id, t.name]))} />
           {active.map((t) => (
             <TrackCard
               key={t.id}
@@ -116,6 +119,7 @@ function TrackCard({ track, steps, lastDoneAt, today, onOpen }: {
         <span style={{ fontSize: 15, fontWeight: 700 }}>{track.name}</span>
         <span className="small muted">{track.type === 'project' ? 'プロジェクト' : '習慣'}</span>
       </div>
+      {track.goal && <span className="small">なりたい状態：{track.goal}</span>}
       {/* 進み具合のグラフは「記録」タブへ。ここは決める・直すための一覧 */}
       <span className="small muted">
         {track.type === 'project'
@@ -220,6 +224,15 @@ function TrackDetail({ track, steps, onBack }: { track: Track; steps: Step[]; on
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={() => name.trim() && name.trim() !== track.name && updateTrack(track.id, { name: name.trim() })}
+        />
+      </label>
+      <label className="field">
+        <span>なりたい状態（どうなったら「できた」？・空欄でも大丈夫）</span>
+        <input
+          className="input"
+          defaultValue={track.goal ?? ''}
+          placeholder="例：週2〜3回ジムに行けている"
+          onBlur={(e) => e.target.value.trim() !== (track.goal ?? '') && updateTrack(track.id, { goal: e.target.value.trim() || undefined })}
         />
       </label>
 
