@@ -3,6 +3,8 @@ import { useLive, useNow } from '../hooks';
 import {
   addStep,
   archiveTrack,
+  changeTrackType,
+  deleteTrack,
   createTrack,
   deleteLeftover,
   deleteStep,
@@ -203,6 +205,26 @@ function TrackDetail({ track, steps, onBack }: { track: Track; steps: Step[]; on
         </button>
         <span className="small muted">{track.type === 'project' ? 'プロジェクト型' : '習慣型'}</span>
       </div>
+      <div className="field">
+        <span>種類</span>
+        <div className="seg" role="group" aria-label="種類">
+          {(['habit', 'project'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              aria-pressed={track.type === t}
+              onClick={() => {
+                if (track.type === t) return;
+                if (window.confirm(`「${track.name}」を${t === 'habit' ? '習慣型' : 'プロジェクト型'}に変えますか？${t === 'habit' ? 'ステップは消えずに残ります。' : ''}`)) {
+                  void changeTrackType(track.id, t);
+                }
+              }}
+            >
+              {t === 'habit' ? '習慣型' : 'プロジェクト型'}
+            </button>
+          ))}
+        </div>
+      </div>
       <label className="field">
         <span>名前</span>
         <input
@@ -272,7 +294,23 @@ function TrackDetail({ track, steps, onBack }: { track: Track; steps: Step[]; on
           }
         }}
       >
-        この取り組みを終了する
+        この取り組みを終了する（記録は残す）
+      </button>
+      <button
+        className="btn-ghost"
+        style={{ color: 'var(--warn)', alignSelf: 'center' }}
+        onClick={async () => {
+          if (
+            window.confirm(
+              `「${track.name}」を削除しますか？\nステップ、カレンダーに置いた予定（済の記録も含む）、やり残しもすべて消え、元に戻せません。\n記録を残したい場合は「終了する」を使ってください。`,
+            )
+          ) {
+            await deleteTrack(track.id);
+            onBack();
+          }
+        }}
+      >
+        この取り組みを削除する
       </button>
     </>
   );
