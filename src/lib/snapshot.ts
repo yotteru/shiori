@@ -1,5 +1,5 @@
 import { db, type ShioriDB } from './db';
-import { SCHEMA_VERSION, type Journal, type Leftover, type Plan, type Routine, type StartSession, type Step, type Track } from './types';
+import { SCHEMA_VERSION, type Journal, type Leftover, type Memo, type Plan, type Routine, type StartSession, type Step, type Track } from './types';
 
 // 全データの取り出しと置き換え。書き出し（§4.2）と自動バックアップ（§4.1）で共通に使う
 
@@ -13,6 +13,8 @@ export interface Snapshot {
   routines?: Routine[];
   /** 始めた記録（2026-11-08 追加。古いファイルにはない） */
   starts?: StartSession[];
+  /** メモ箱（2026-11-08 追加。古いファイルにはない） */
+  memos?: Memo[];
 }
 
 export interface BackupFile extends Snapshot {
@@ -22,7 +24,7 @@ export interface BackupFile extends Snapshot {
 }
 
 export async function takeSnapshot(database: ShioriDB = db): Promise<Snapshot> {
-  return database.transaction('r', [database.tracks, database.steps, database.plans, database.journals, database.leftovers, database.routines, database.starts], async () => ({
+  return database.transaction('r', [database.tracks, database.steps, database.plans, database.journals, database.leftovers, database.routines, database.starts, database.memos], async () => ({
     tracks: await database.tracks.toArray(),
     steps: await database.steps.toArray(),
     plans: await database.plans.orderBy('lifeDate').toArray(),
@@ -30,6 +32,7 @@ export async function takeSnapshot(database: ShioriDB = db): Promise<Snapshot> {
     leftovers: await database.leftovers.toArray(),
     routines: await database.routines.toArray(),
     starts: await database.starts.toArray(),
+    memos: await database.memos.toArray(),
   }));
 }
 
@@ -72,7 +75,7 @@ export function parseBackupFile(raw: unknown): BackupFile {
 export async function replaceAll(s: Snapshot, database: ShioriDB = db): Promise<void> {
   await database.transaction(
     'rw',
-    [database.tracks, database.steps, database.plans, database.journals, database.leftovers, database.routines, database.starts, database.drafts, database.meta],
+    [database.tracks, database.steps, database.plans, database.journals, database.leftovers, database.routines, database.starts, database.memos, database.drafts, database.meta],
     async () => {
       await Promise.all([
         database.tracks.clear(),
@@ -82,6 +85,7 @@ export async function replaceAll(s: Snapshot, database: ShioriDB = db): Promise<
         database.leftovers.clear(),
         database.routines.clear(),
         database.starts.clear(),
+        database.memos.clear(),
         database.drafts.clear(),
       ]);
       await database.tracks.bulkPut(s.tracks);
@@ -91,6 +95,7 @@ export async function replaceAll(s: Snapshot, database: ShioriDB = db): Promise<
       await database.leftovers.bulkPut(s.leftovers);
       if (s.routines?.length) await database.routines.bulkPut(s.routines);
       if (s.starts?.length) await database.starts.bulkPut(s.starts);
+      if (s.memos?.length) await database.memos.bulkPut(s.memos);
       const meta = (await database.meta.get('meta')) ?? { key: 'meta' as const, schemaVersion: 1 as const, onboarded: false };
       await database.meta.put({ ...meta, onboarded: meta.onboarded || s.tracks.length > 0 });
     },

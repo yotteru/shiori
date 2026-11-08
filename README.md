@@ -46,6 +46,7 @@
 5. [supabase/migrations/0005_web_push.sql](supabase/migrations/0005_web_push.sql)（5分の知らせ。手順 9 も必要）
 6. [supabase/migrations/0006_sync_starts.sql](supabase/migrations/0006_sync_starts.sql)（始めた記録の同期）
 7. [supabase/migrations/0007_start_reminders.sql](supabase/migrations/0007_start_reminders.sql)（予定の開始時刻の通知。手順 10 も必要）
+8. [supabase/migrations/0008_sync_memos.sql](supabase/migrations/0008_sync_memos.sql)（メモ箱の同期）
 
 実行後、次の SQL でジョブが登録されていることを確認します。
 
@@ -153,6 +154,7 @@ SQL Editor で [supabase/migrations/0007_start_reminders.sql](supabase/migration
 - **答え合わせ・1行ジャーナル**：「今日」の下でいつでも。昨日の答え合わせが残っていれば、「今日」の上に出ます
 - **バックアップ**：合言葉を設定すると、夜の計画保存のたびに暗号化して自動バックアップ。7日書き出していなければ、夜の流れの完了画面に Google ドライブへの書き出しボタンが出ます
 - **動作確認**：設定の一番下「開発用：今の日時を指定する」で、日付をずらして試せます（上書き中は画面上部にオレンジの帯）
+- **メモ箱**：思いついたことは、しおりタブの「＋ メモ」か、取り組みタブのメモ箱に1行で入れる。メモのままでは候補に出ない。取り組みにしたくなったら「整える」（なりたい状態 → 習慣か終わりがあるか → ステップと最初の一手）
 
 ## 開発
 

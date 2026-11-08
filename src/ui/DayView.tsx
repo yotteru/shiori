@@ -40,12 +40,13 @@ import { NightFinishedExtras } from './Backup';
 import { Calendar, PX_PER_MIN, type CalBlock } from './Calendar';
 import { MinutesSelect, Sheet, TimeSelect, Toast } from './common';
 import { DoneSheet } from './DoneSheet';
+import { MemoInput } from './MemoBox';
 import { JournalCard, ReviewCard } from './Reflection';
 
 // しおりタブ（2026-11-08 カレンダー版）。「今日」「明日」をいつでも切り替えて、縦のカレンダーで組む
 
 type Day = 'today' | 'tomorrow';
-type SheetKind = null | 'fixed' | 'reflect' | 'yesterday' | 'first' | 'confirmed' | 'quick' | 'stop';
+type SheetKind = null | 'fixed' | 'reflect' | 'yesterday' | 'first' | 'confirmed' | 'quick' | 'stop' | 'memo';
 const TAB_H = 56;
 
 export function DayView() {
@@ -433,14 +434,14 @@ export function DayView() {
                   済をつける
                 </button>
               </div>
-              <QuickLink onClick={() => setSheet('quick')} />
+              <QuickLink onQuick={() => setSheet('quick')} onMemo={() => setSheet('memo')} />
             </div>
           ) : (
             <div className="stack" style={{ gap: 4 }}>
               <button className="btn" onClick={() => setSheet('reflect')}>
                 今日の振り返り（答え合わせ・ジャーナル）
               </button>
-              <QuickLink onClick={() => setSheet('quick')} />
+              <QuickLink onQuick={() => setSheet('quick')} onMemo={() => setSheet('memo')} />
             </div>
           )
         ) : (
@@ -511,6 +512,22 @@ export function DayView() {
           {confirmed.ping === 'failed' && <p className="small muted">計画した日付をサーバーに送れませんでした。次回もう一度送ります。</p>}
           {confirmed.backup === 'failed' && <p className="small muted">自動バックアップに失敗しました。次回もう一度行います。</p>}
           <button className="btn-primary" onClick={() => setSheet(null)}>
+            閉じる
+          </button>
+        </Sheet>
+      )}
+      {sheet === 'memo' && (
+        <Sheet onClose={() => setSheet(null)} label="メモ箱に入れる">
+          <span style={{ fontSize: 18, fontWeight: 700 }}>メモ箱に入れる</span>
+          <span className="sub">思いついたことを1行で。整えるのは「取り組み」タブのメモ箱で、あとからで大丈夫です。</span>
+          <MemoInput
+            autoFocus
+            onAdded={() => {
+              setSheet(null);
+              setToast({ message: 'メモ箱に入れました' });
+            }}
+          />
+          <button className="btn-ghost" onClick={() => setSheet(null)}>
             閉じる
           </button>
         </Sheet>
@@ -689,11 +706,16 @@ function FixedSheet({
   );
 }
 
-function QuickLink({ onClick }: { onClick: () => void }) {
+function QuickLink({ onQuick, onMemo }: { onQuick: () => void; onMemo: () => void }) {
   return (
-    <button className="btn-ghost" style={{ minHeight: 32 }} onClick={onClick}>
-      ＋ その場の5分（計画にないこと）
-    </button>
+    <div className="cal-two">
+      <button className="btn-ghost" style={{ minHeight: 32 }} onClick={onQuick}>
+        ＋ その場の5分
+      </button>
+      <button className="btn-ghost" style={{ minHeight: 32 }} onClick={onMemo}>
+        ＋ メモ
+      </button>
+    </div>
   );
 }
 

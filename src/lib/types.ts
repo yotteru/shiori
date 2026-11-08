@@ -14,6 +14,8 @@ export interface Track {
   defaultFirstStep?: string;
   /** 習慣型の既定値：きっかけ（例：帰宅して靴を脱いだら） */
   defaultCue?: string;
+  /** なりたい状態（どうなったら「できた」か。メモ箱から整えたときなど。空欄可） */
+  goal?: string;
   /** 前回の続き（済をつけたときの「次はここから」） */
   lastNote?: { text: string; at: string };
   /** 同期用：最後に変更した実時刻（自動で付く） */
@@ -119,6 +121,17 @@ export interface StartSession {
   quick?: boolean;
   /** 5分後の知らせの予約（取り消し用） */
   pushId?: string;
+  updatedAt?: string;
+}
+
+/** メモ箱（2026-11-08）：思いついたことを1行で放り込む。候補には出ない。整えると取り組みになる */
+export interface Memo {
+  id: string;
+  text: string;
+  createdAt: string;
+  /** 取り組みにしたとき、その取り組み */
+  trackId?: string;
+  madeAt?: string;
   updatedAt?: string;
 }
 
