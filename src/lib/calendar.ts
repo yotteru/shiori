@@ -1,6 +1,7 @@
 import { addDays, weekday, weekStartMonday } from './lifeDate';
 import { GAP_MINUTES, parseHm } from './schedule';
-import type { Plan, PlanItem, Routine } from './types';
+import { workedMinutes } from './records';
+import type { Plan, PlanItem, Routine, StartSession } from './types';
 
 // カレンダーで組む（2026-11-08 決定。要件メモ「カレンダーで組む」）
 // 時刻はすべて「その日の 0:00 からの分」。翌日にまたがるときは 1440 以上になる
@@ -136,13 +137,14 @@ export function findGaps(blocks: { start: number; min: number }[], options: { mi
 }
 
 /** 今週（月曜はじまり）に済をつけた時間を、取り組みごとに合計する */
-export function weeklyDoneMinutes(plans: Plan[], today: string): Record<string, number> {
+export function weeklyDoneMinutes(plans: Plan[], today: string, sessions: StartSession[] = []): Record<string, number> {
   const monday = weekStartMonday(today);
   const sunday = addDays(monday, 6);
   const out: Record<string, number> = {};
   for (const p of plans) {
     if (p.lifeDate < monday || p.lifeDate > sunday) continue;
-    for (const i of p.items) if (i.status === 'done') out[i.trackId] = (out[i.trackId] ?? 0) + i.minutes;
+    const day = sessions.filter((s) => s.lifeDate === p.lifeDate);
+    for (const [trackId, min] of Object.entries(workedMinutes(p, day))) out[trackId] = (out[trackId] ?? 0) + min;
   }
   return out;
 }

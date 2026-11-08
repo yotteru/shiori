@@ -16,7 +16,7 @@ import { CalendarViewSettings, RoutineSettings } from './ui/RoutineSettings';
 import { Onboarding } from './ui/Onboarding';
 import { Settings } from './ui/Settings';
 import { PushSettings } from './ui/PushSettings';
-import { ShortcutTestSettings } from './ui/ShortcutTest';
+import { StartSettings } from './ui/StartSettings';
 import { SyncSettings } from './ui/SyncSettings';
 import { scheduleSync } from './lib/syncRuntime';
 import { Tracks } from './ui/Tracks';
@@ -91,8 +91,8 @@ function Main() {
                 <BackupSettings />
                 <ExportSettings />
                 <NotifySettings />
+                <StartSettings />
                 <PushSettings />
-                <ShortcutTestSettings />
               </>
             }
           />
