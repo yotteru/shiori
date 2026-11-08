@@ -131,3 +131,75 @@ button:disabled { cursor: default; opacity: 0.45; }
 .tabbar > div { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; max-width: 480px; }
 .tabbar button { min-height: 56px; border: 0; background: transparent; font-size: 13px; color: var(--muted); font-weight: 500; }
 .tabbar button[aria-current='page'] { color: var(--text); font-weight: 700; }
+
+/* ===== カレンダー（2026-11-08。試作ページと同じ作り） ===== */
+.cal-top { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; z-index: 20; background: var(--bg); padding: calc(env(safe-area-inset-top) + 10px) 16px 6px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 0 var(--track); }
+.cal-top.compact .cal-collapse { display: none; }
+.cal-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cal-title h1 { margin: 0; font-size: 17px; font-weight: 700; }
+.cal-chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.chip-btn { min-height: 32px; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 0 10px; font-size: 12px; }
+.chip-btn.accent { border-color: var(--next); color: var(--warn); font-weight: 700; }
+.cal-collapse { display: flex; flex-direction: column; gap: 6px; }
+.row-scroll { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.row-scroll::-webkit-scrollbar { display: none; }
+.week-chip { flex: none; font-size: 11px; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.tray-cand { flex: none; border-radius: 10px; padding: 3px 10px; min-height: 42px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; border: 1px solid var(--line-soft); background: var(--surface); }
+.tray-cand small { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.tray-cand span { font-size: 12px; font-weight: 500; white-space: nowrap; }
+.tray-cand.held { background: var(--card-strong); border-color: var(--card-strong); color: #fff; }
+.tray-cand.held small { color: var(--on-strong-muted); }
+.tray-cand.fit { border: 2px solid var(--next); }
+.tray-cand.nofit, .tray-cand.placed { opacity: 0.35; }
+.cal-hint { font-size: 11px; color: var(--muted); min-height: 15px; }
+.cal-hint.on { color: var(--warn); }
+.cal-lanes { display: flex; align-items: center; padding-left: 40px; padding-right: 26px; }
+.cal-lanes button { width: 64px; min-height: 26px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 11px; color: var(--muted); }
+.cal-lanes span { flex: 1; text-align: center; font-size: 10px; color: var(--muted); }
+
+.cal { background: var(--surface); border-radius: 14px; display: flex; padding: 10px 26px 10px 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.cal * { -webkit-tap-highlight-color: transparent; }
+.cal-axis { width: 40px; flex: none; position: relative; }
+.cal-axis span { position: absolute; right: 6px; transform: translateY(-50%); font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.cal-grid { flex: 1; position: relative; border-left: 1px solid var(--line); }
+.cal-grid.holding { background: #fbf4ee; }
+.cal-hline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--track); pointer-events: none; }
+.cal-hline.half { border-top-style: dashed; border-top-color: #eff1f4; }
+.cal-lane { position: absolute; top: 0; bottom: 0; left: 0; width: 64px; background: #f7f8fa; border-right: 1px solid #eff1f4; pointer-events: none; }
+.cal-gap { position: absolute; left: 72px; right: 4px; border: 1px dashed var(--line); border-radius: 8px; background: transparent; font-size: 11px; color: var(--muted); font-family: var(--mono); display: flex; align-items: center; justify-content: center; padding: 0; }
+.cal-gap.on { border-color: var(--next); background: #fdebdf; color: var(--warn); }
+.blk { position: absolute; border-radius: 6px; border: 1px solid transparent; border-left-width: 4px; padding: 1px 5px; display: flex; flex-direction: column; justify-content: center; gap: 1px; overflow: hidden; touch-action: pan-y; }
+.blk .tm { font-size: 10px; color: var(--muted); font-family: var(--mono); white-space: nowrap; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; flex: none; }
+.blk.tall .tm { white-space: normal; }
+.blk .tt { font-size: 11px; font-weight: 700; line-height: 1.15; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; word-break: break-all; flex: none; }
+.blk.habit { background: #e3f2f0; border-left-color: var(--done); }
+.blk.project { background: #fdebdf; border-left-color: var(--next); }
+.blk.fixed { background: #eef0f3; border-left-color: #9aa3ae; justify-content: flex-start; padding-top: 3px; }
+.blk.fixed .tt { font-weight: 500; }
+.blk.next { background: var(--card-strong); color: #fff; border-left-color: var(--next); box-shadow: 0 6px 16px rgba(21, 24, 29, 0.22); z-index: 4; }
+.blk.next .tm { color: var(--on-strong-muted); }
+.blk .first { font-size: 11px; color: var(--next-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blk.done, .blk.undone { opacity: 0.55; }
+.blk .stamp-s { position: absolute; right: 6px; top: 4px; border: 2px solid var(--done); color: var(--done); border-radius: 6px; padding: 0 5px; font-size: 11px; font-weight: 700; transform: rotate(-6deg); background: var(--surface); }
+.blk.sel { box-shadow: 0 0 0 2px var(--text); z-index: 6; touch-action: none; }
+.cal-handle { position: absolute; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; touch-action: none; z-index: 7; background: transparent; }
+.cal-handle i { width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid var(--text); }
+.cal-grid.dragging .cal-handle { display: none; }
+.cal-bubble { position: absolute; right: 4px; top: -26px; background: var(--card-strong); color: #fff; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; font-family: var(--mono); white-space: nowrap; z-index: 8; }
+.cal-now { position: absolute; left: -6px; right: 0; display: flex; align-items: center; gap: 4px; z-index: 9; pointer-events: none; }
+.cal-now i { width: 10px; height: 10px; border-radius: 50%; background: var(--next); flex: none; }
+.cal-now b { flex: 1; border-top: 2px solid var(--next); }
+.cal-now span { font-size: 10px; font-weight: 600; color: #fff; background: var(--next); border-radius: 6px; padding: 1px 6px; font-family: var(--mono); }
+.cal-index { position: fixed; right: max(2px, env(safe-area-inset-right)); top: 50%; transform: translateY(-40%); z-index: 15; display: flex; flex-direction: column; gap: 2px; background: rgba(255, 255, 255, 0.85); border-radius: 10px; padding: 4px 0; }
+.cal-index button { width: 26px; min-height: 26px; border: 0; background: transparent; font-size: 10px; color: var(--muted); padding: 0; font-family: var(--mono); }
+.cal-dock { position: fixed; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; bottom: calc(56px + env(safe-area-inset-bottom)); z-index: 12; background: var(--bg); box-shadow: 0 -1px 0 var(--track); padding: 8px 16px; display: flex; flex-direction: column; gap: 6px; }
+.cal-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.selbar { background: var(--card-strong); color: #fff; border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+.selbar .r { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.selbar b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.selbar small { font-size: 12px; color: var(--on-strong-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-family: inherit; }
+.selbar button { flex: none; min-height: 34px; border: 1px solid #4b5360; border-radius: 8px; background: transparent; color: var(--next-soft); padding: 0 12px; font-size: 13px; }
+.selbar .link { border: 0; color: var(--on-strong-muted); text-decoration: underline; padding: 0 4px; min-height: 34px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.days7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.days7 button { min-height: 36px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 13px; }
+.days7 button[aria-pressed='true'] { background: var(--card-strong); color: #fff; border-color: var(--card-strong); }

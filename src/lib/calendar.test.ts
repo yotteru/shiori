@@ -67,8 +67,17 @@ describe('カレンダーの計算', () => {
   it('空きは30分以上だけ。from より前は数えない', () => {
     const blocks = [{ start: 1110, min: 60 }, { start: 1185, min: 30 }, { start: 1260, min: 45 }];
     expect(findGaps(blocks)).toEqual([{ start: 1215, len: 45 }]);
+    // from 以降だけ数える（今日は「いま」より前の空きは出さない）
     expect(findGaps(blocks, { from: 1230 })).toEqual([{ start: 1230, len: 30 }]);
     expect(findGaps(blocks, { from: 1240 })).toEqual([]);
+    // 最初の予定の前と、最後の予定の後ろも数える
+    expect(findGaps(blocks, { from: 360, to: 1440 })).toEqual([
+      { start: 360, len: 750 },
+      { start: 1215, len: 45 },
+      { start: 1305, len: 135 },
+    ]);
+    // 予定がなければ全体が空き
+    expect(findGaps([], { from: 1230, to: 1440 })).toEqual([{ start: 1230, len: 210 }]);
   });
   it('今週（月曜はじまり）に済をつけた時間を取り組みごとに合計する', () => {
     const plans = [

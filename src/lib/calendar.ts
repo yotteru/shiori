@@ -115,19 +115,23 @@ export interface Gap {
   len: number;
 }
 
-/** 空き：予定（固定も含む）と予定のあいだで minLen 分以上空いているところ。from より前は数えない */
-export function findGaps(blocks: { start: number; min: number }[], options: { minLen?: number; from?: number } = {}): Gap[] {
+/**
+ * 空き：予定（固定も含む）のあいだで minLen 分以上空いているところ。
+ * from を渡すとそこから最初の予定まで、to を渡すと最後の予定からそこまでも数える（予定がなければ from〜to 全体）
+ */
+export function findGaps(blocks: { start: number; min: number }[], options: { minLen?: number; from?: number; to?: number } = {}): Gap[] {
   const minLen = options.minLen ?? MIN_LEN;
   const sorted = blocks.slice().sort((a, b) => a.start - b.start);
   const gaps: Gap[] = [];
-  let end: number | null = null;
+  let cursor: number | null = options.from ?? null;
+  const push = (s: number, e: number) => {
+    if (e - s >= minLen) gaps.push({ start: s, len: e - s });
+  };
   for (const b of sorted) {
-    if (end !== null) {
-      const s = options.from !== undefined ? Math.max(end, options.from) : end;
-      if (b.start - s >= minLen) gaps.push({ start: s, len: b.start - s });
-    }
-    end = end === null ? b.start + b.min : Math.max(end, b.start + b.min);
+    if (cursor !== null) push(cursor, b.start);
+    cursor = cursor === null ? b.start + b.min : Math.max(cursor, b.start + b.min);
   }
+  if (options.to !== undefined && cursor !== null) push(cursor, options.to);
   return gaps;
 }
 
