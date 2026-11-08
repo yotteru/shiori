@@ -259,6 +259,7 @@ export function DayView() {
             )}
           </div>
         </div>
+        {/* 下へスクロールしたときに畳むのは「今週の合計」だけ。候補は遅い時間帯にも置けるよう常に出しておく */}
         <div className="cal-collapse">
           <div className="row-scroll">
             <span className="week-chip muted" style={{ paddingLeft: 0 }}>
@@ -270,7 +271,8 @@ export function DayView() {
               </span>
             ))}
           </div>
-          <div className="row-scroll">
+        </div>
+        <div className="row-scroll">
             {cands.length === 0 && <span className="small muted">候補がありません。「取り組み」から追加できます。</span>}
             {cands.map((c) => {
               const placed = placedKeys.has(c.key) && c.trackType === 'project';
@@ -297,7 +299,6 @@ export function DayView() {
                 </button>
               );
             })}
-          </div>
         </div>
         <div className={`cal-hint${gap || heldCand ? ' on' : ''}`}>{hint}</div>
         <div className="cal-lanes">
