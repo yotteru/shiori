@@ -85,3 +85,29 @@ describe('カレンダーの操作', () => {
     expect((await dst.routines.toArray()).map((r) => r.title)).toEqual(['風呂']);
   });
 });
+
+describe('始める瞬間の対策（きっかけ・前の晩の準備）', () => {
+  it('習慣型のいつものきっかけが置いた予定に付き、あとから書き換えられる', async () => {
+    const { editStart } = await import('./calendarActions');
+    const d = fresh();
+    await d.tracks.put({ id: 'gym', name: '筋トレ', type: 'habit', createdAt: '2026-10-01T00:00:00Z', defaultMinutes: 90, defaultFirstStep: 'バッグを持つ', defaultCue: '帰宅して靴を脱いだら' });
+    const [c] = buildCandidates({ today: '2026-11-08', tracks: await d.tracks.toArray(), steps: [], leftovers: [] });
+    const item = await placeCandidate('2026-11-09', 'night', c, 1170, d);
+    expect(item.cue).toBe('帰宅して靴を脱いだら');
+    await editStart('2026-11-09', item.id, { cue: '', firstStep: 'ウェアに着替える' }, d);
+    const saved = (await d.plans.get('2026-11-09'))!.items[0];
+    expect(saved.cue).toBeUndefined();
+    expect(saved.firstStep).toBe('ウェアに着替える');
+  });
+
+  it('前の晩の準備を書いて済ませる・消す', async () => {
+    const { setPrep } = await import('./calendarActions');
+    const d = fresh();
+    await setPrep('2026-11-09', { text: ' バッグを玄関に置く ' }, d);
+    expect((await d.plans.get('2026-11-09'))!.prep).toEqual({ text: 'バッグを玄関に置く' });
+    await setPrep('2026-11-09', { text: 'バッグを玄関に置く', doneAt: '2026-11-08T13:00:00Z' }, d);
+    expect((await d.plans.get('2026-11-09'))!.prep?.doneAt).toBe('2026-11-08T13:00:00Z');
+    await setPrep('2026-11-09', null, d);
+    expect((await d.plans.get('2026-11-09'))!.prep).toBeUndefined();
+  });
+});

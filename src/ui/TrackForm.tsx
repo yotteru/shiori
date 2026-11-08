@@ -7,6 +7,7 @@ export interface TrackFormValue {
   type: Track['type'];
   defaultMinutes: number;
   defaultFirstStep: string;
+  defaultCue: string;
   steps: NewStep[];
 }
 
@@ -58,6 +59,10 @@ export function TrackForm({ value, onChange }: { value: TrackFormValue; onChange
             <input className="input" value={value.defaultFirstStep} placeholder="例：バッグを持って家を出る" onChange={(e) => set({ defaultFirstStep: e.target.value })} />
             <span className="small muted">{FIRST_STEP_HELP}</span>
           </label>
+          <label className="field">
+            <span>いつものきっかけ（〜したら・空欄でも可）</span>
+            <input className="input" value={value.defaultCue} placeholder="例：帰宅して靴を脱いだら" onChange={(e) => set({ defaultCue: e.target.value })} />
+          </label>
         </>
       ) : (
         <div className="stack" style={{ gap: 12 }}>
@@ -88,13 +93,13 @@ export function TrackForm({ value, onChange }: { value: TrackFormValue; onChange
 }
 
 export function emptyTrackForm(): TrackFormValue {
-  return { name: '', type: 'habit', defaultMinutes: 60, defaultFirstStep: '', steps: [emptyStep()] };
+  return { name: '', type: 'habit', defaultMinutes: 60, defaultFirstStep: '', defaultCue: '', steps: [emptyStep()] };
 }
 
 export function trackFormToInput(v: TrackFormValue) {
   const base = { name: v.name.trim(), type: v.type };
   if (v.type === 'habit') {
-    return { input: { ...base, defaultMinutes: v.defaultMinutes, defaultFirstStep: v.defaultFirstStep.trim() || undefined }, steps: [] };
+    return { input: { ...base, defaultMinutes: v.defaultMinutes, defaultFirstStep: v.defaultFirstStep.trim() || undefined, defaultCue: v.defaultCue.trim() || undefined }, steps: [] };
   }
   return {
     input: base,
