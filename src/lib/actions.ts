@@ -300,3 +300,26 @@ export async function restoreLeftover(id: string, today: string, database: Shior
 export async function deleteLeftover(id: string, database: ShioriDB = db) {
   await database.leftovers.delete(id);
 }
+
+/**
+ * 取り組みを削除する（間違えて作ったとき用。2026-11-08）。
+ * ステップ・カレンダーに置いた予定（済も含む）・やり残しもまとめて消す。記録を残したいときは「終了」を使う
+ */
+export async function deleteTrack(id: string, database: ShioriDB = db) {
+  await database.transaction('rw', [database.tracks, database.steps, database.plans, database.leftovers], async () => {
+    await database.tracks.delete(id);
+    await database.steps.where('trackId').equals(id).delete();
+    const leftovers = await database.leftovers.toArray();
+    await database.leftovers.bulkDelete(leftovers.filter((l) => l.item.trackId === id).map((l) => l.id));
+    const plans = await database.plans.toArray();
+    for (const p of plans) {
+      if (p.items.some((i) => i.trackId === id)) await database.plans.put({ ...p, items: p.items.filter((i) => i.trackId !== id) });
+    }
+  });
+}
+
+/** 種類（習慣型 ↔ プロジェクト型）を変える。ステップは残しておく（戻したときにまた使える） */
+export async function changeTrackType(id: string, type: Track['type'], database: ShioriDB = db) {
+  const t = await database.tracks.get(id);
+  if (t) await database.tracks.put({ ...t, type, defaultMinutes: t.defaultMinutes ?? 60 });
+}
