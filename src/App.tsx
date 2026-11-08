@@ -15,6 +15,7 @@ import { Records } from './ui/Records';
 import { CalendarViewSettings, RoutineSettings } from './ui/RoutineSettings';
 import { Onboarding } from './ui/Onboarding';
 import { Settings } from './ui/Settings';
+import { ShortcutTestSettings } from './ui/ShortcutTest';
 import { SyncSettings } from './ui/SyncSettings';
 import { scheduleSync } from './lib/syncRuntime';
 import { Tracks } from './ui/Tracks';
@@ -89,6 +90,7 @@ function Main() {
                 <BackupSettings />
                 <ExportSettings />
                 <NotifySettings />
+                <ShortcutTestSettings />
               </>
             }
           />
