@@ -193,7 +193,8 @@ export async function savePlan(
     await database.plans.put({ ...plan, createdAt: prev?.createdAt ?? plan.createdAt });
     if (usedLeftoverIds.length) await database.leftovers.bulkDelete(usedLeftoverIds);
   });
-  const ping = await pushPlanningPing(plan.lifeDate, database);
+  // 「計画した日付」は23時の通知を止めるためのもの。前の晩に組んだ計画だけ送る
+  const ping = plan.source === 'night' ? await pushPlanningPing(plan.lifeDate, database) : 'skipped';
   let backup: SyncResult = 'skipped';
   if (backupHook) {
     try {
