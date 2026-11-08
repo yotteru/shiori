@@ -42,6 +42,7 @@
 1. [supabase/migrations/0001_tables_and_rls.sql](supabase/migrations/0001_tables_and_rls.sql)
 2. [supabase/migrations/0002_plan_reminder.sql](supabase/migrations/0002_plan_reminder.sql)
 3. [supabase/migrations/0003_sync.sql](supabase/migrations/0003_sync.sql)（iPhone と iPad の同期）
+4. [supabase/migrations/0004_sync_routines.sql](supabase/migrations/0004_sync_routines.sql)（いつもの固定の同期）
 
 実行後、次の SQL でジョブが登録されていることを確認します。
 
@@ -93,7 +94,8 @@ update public.notification_state set notify_time = '23:00' where id = 1;
 ## 使い方の要点
 
 - **1日の区切りは朝4時**。夜0:30に組んだ計画も「翌朝のしおり」になります
-- しおりタブの上で **「今日」「明日」をいつでも切り替え** られます（時間帯で画面は変わりません）
+- しおりタブの上で **「今日」「明日」をいつでも切り替え** られます（時間帯で画面は変わりません）。どちらも縦のカレンダーで、候補を持って時刻をタップするか「空き」の札をタップして置き、予定を選んでドラッグで動かします
+- 仕事・食事などは、設定の「**いつもの固定**」で曜日ごとに決めておくと、毎日カレンダーの左の列に置かれます
 - **明日**：明日のルートを組む（夜でも昼でも）。保存すると、その晩の23時の通知は届きません
 - **今日**：次の行き先の「最初の一手を始める」→ 終わったら「済をつける」（次はここからを1行）。「行き先を足す・並べ替える」でいつでも直せます。計画がなければ、その場で今日の分を組めます
 - **答え合わせ・1行ジャーナル**：「今日」の下でいつでも。昨日の答え合わせが残っていれば、「今日」の上に出ます

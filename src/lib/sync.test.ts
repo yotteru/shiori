@@ -146,6 +146,15 @@ describe('端末間の同期', () => {
     expect((await pad.tracks.get('h'))?.name).toBe('筋トレ（iPad・後）');
   });
 
+  it('いつもの固定も同期される', async () => {
+    const { server, phone, pad } = await pair();
+    await phone.routines.put({ id: 'r1', title: '仕事', start: 540, min: 540, days: [1, 2, 3, 4, 5], createdAt: '2026-11-08T00:00:00Z' });
+    await settle();
+    await syncNow(server, phone);
+    await syncNow(server, pad);
+    expect((await pad.routines.get('r1'))?.title).toBe('仕事');
+  });
+
   it('削除も伝わる', async () => {
     const { server, phone, pad } = await pair();
     await pad.steps.delete('s1');

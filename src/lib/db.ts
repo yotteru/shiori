@@ -8,6 +8,7 @@ import {
   type Leftover,
   type Meta,
   type Plan,
+  type Routine,
   type Step,
   type Track,
 } from './types';
@@ -57,6 +58,8 @@ export class ShioriDB extends Dexie {
   secrets!: Table<BackupKeyRecord, string>;
   /** 同期で送る必要がある変更 */
   outbox!: Table<OutboxEntry, string>;
+  /** いつもの固定（同期する） */
+  routines!: Table<Routine, string>;
 
   constructor(name = 'shiori') {
     super(name);
@@ -72,6 +75,7 @@ export class ShioriDB extends Dexie {
     // IndexedDB の器の版（データ形式の schemaVersion とは別）
     this.version(2).stores({ secrets: 'id' });
     this.version(3).stores({ outbox: 'key' });
+    this.version(4).stores({ routines: 'id' });
     installSyncMiddleware(this);
   }
 }

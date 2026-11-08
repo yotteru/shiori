@@ -193,7 +193,15 @@ export async function savePlan(
     await database.plans.put({ ...plan, createdAt: prev?.createdAt ?? plan.createdAt });
     if (usedLeftoverIds.length) await database.leftovers.bulkDelete(usedLeftoverIds);
   });
-  // 「計画した日付」は23時の通知を止めるためのもの。前の晩に組んだ計画だけ送る
+  return afterPlanSaved(plan, database);
+}
+
+/**
+ * 計画を保存したあとにすること：2 planning_pings（前の晩に組んだ計画だけ）→ 3 自動バックアップ。
+ * 端末内の保存はすでに済んでいる前提。失敗しても計画は保存されたまま
+ */
+export async function afterPlanSaved(plan: Pick<Plan, 'lifeDate' | 'source'>, database: ShioriDB = db): Promise<SavePlanResult> {
+  // 「計画した日付」は23時の通知を止めるためのもの
   const ping = plan.source === 'night' ? await pushPlanningPing(plan.lifeDate, database) : 'skipped';
   let backup: SyncResult = 'skipped';
   if (backupHook) {
