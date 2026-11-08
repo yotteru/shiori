@@ -4,7 +4,6 @@
 // 作り方は docs/SHORTCUTS.md
 
 export const SHORTCUT_START = 'しおり5分';
-export const SHORTCUT_END = 'しおりおわり';
 const SHORTCUT_TEST = 'しおりテスト';
 
 export function shortcutUrl(name: string, text?: string): string {
@@ -27,11 +26,10 @@ const tests: { label: string; note: string; href: () => string }[] = [
   { label: '1. 呼べるか', note: `「${SHORTCUT_TEST}」が動き、通知が出れば成功`, href: () => shortcutUrl(SHORTCUT_TEST) },
   { label: '2. 戻ってくるか', note: '動いたあと、しおり（ホーム画面のアプリ）に戻れば成功。Safari が開いたら失敗', href: () => callbackUrl(SHORTCUT_TEST) },
   {
-    label: '3. 始める（本番と同じ）',
-    note: `「${SHORTCUT_START}」が動いたら画面を消して5分待つ。Apple Watch に知らせが来れば成功`,
+    label: '3. 集中モードをオンにする',
+    note: `「${SHORTCUT_START}」で集中モード「しおり」がオンになれば成功（5分の知らせは上の「5分の知らせ」で試します）`,
     href: () => shortcutUrl(SHORTCUT_START, 'テストの行き先'),
   },
-  { label: '4. おわる', note: `「${SHORTCUT_END}」で集中モードがオフに戻れば成功`, href: () => shortcutUrl(SHORTCUT_END) },
 ];
 
 export function ShortcutTestSettings() {

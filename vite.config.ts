@@ -29,6 +29,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Web プッシュの受け取り（public/push-sw.js）
+        importScripts: ['push-sw.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         runtimeCaching: [
           {
