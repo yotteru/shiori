@@ -40,7 +40,7 @@ export function Today({ plan, today, tracks, steps, plans }: {
       <div className="head-row">
         <div className="head">
           <span className="sub">
-            {formatLifeDateJa(today)}・{plan.source === 'night' ? '昨夜組んだルート' : '朝に選んだ行き先'}
+            {formatLifeDateJa(today)}・{plan.source === 'night' ? '前の晩に組んだルート' : '当日に組んだルート'}
           </span>
           <h1 className="title">今日のしおり</h1>
         </div>

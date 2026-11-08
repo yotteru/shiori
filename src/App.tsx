@@ -5,13 +5,12 @@ import { isDebugNowActive } from './lib/clock';
 import { getMeta, loadClockOverride } from './lib/db';
 import { isStandalone } from './lib/standalone';
 import { supabase } from './lib/supabase';
-import { BackupSettings, ExportSettings, NightFinishedExtras } from './ui/Backup';
-import { Home } from './ui/Home';
+import { BackupSettings, ExportSettings } from './ui/Backup';
 import { InputTest, isInputTestOpen } from './ui/InputTest';
 import { ConfigMissing, InstallGuide } from './ui/InstallGuide';
 import { Login } from './ui/Login';
 import { NotifySettings } from './ui/NotifySettings';
-import { NightFlow } from './ui/NightFlow';
+import { Shiori } from './ui/Shiori';
 import { Onboarding } from './ui/Onboarding';
 import { Settings } from './ui/Settings';
 import { SyncSettings } from './ui/SyncSettings';
@@ -64,7 +63,7 @@ function DebugBanner() {
   return <div className="debug-banner">テスト中：日時を上書きしています</div>;
 }
 
-type View = 'home' | 'night' | 'tracks' | 'settings';
+type View = 'home' | 'tracks' | 'settings';
 
 function Main() {
   const [view, setView] = useState<View>('home');
@@ -75,8 +74,7 @@ function Main() {
   return (
     <>
       <main className="screen">
-        {view === 'home' && <Home onStartNight={() => go('night')} />}
-        {view === 'night' && <NightFlow onClose={() => go('home')} finishedExtras={() => <NightFinishedExtras />} />}
+        {view === 'home' && <Shiori />}
         {view === 'tracks' && <Tracks />}
         {view === 'settings' && (
           <Settings
@@ -91,7 +89,7 @@ function Main() {
           />
         )}
       </main>
-      {view !== 'night' && (
+      {(
         <nav className="tabbar" aria-label="画面の切り替え">
           <div>
             {(

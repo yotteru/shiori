@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { itemFromCandidate, lastWindow, savePlan, type SavePlanResult } from '../lib/actions';
-import { buildCandidates, candidateKey, type Candidate } from '../lib/candidates';
+import { buildCandidates, candidateKey, lastDoneByTrack, morningCandidates, type Candidate } from '../lib/candidates';
 import { nowIso } from '../lib/clock';
 import { db } from '../lib/db';
 import { formatLifeDateJa } from '../lib/lifeDate';
@@ -23,15 +23,29 @@ interface Stop {
 interface BuilderState {
   window: Plan['window'];
   stops: Stop[];
+  /** 保存済みの計画を直すときは元の種類（前夜に組んだ／当日に組んだ）を保つ */
+  source?: Plan['source'];
 }
 
-export function PlanBuilder({ today, planFor, tracks, steps, leftovers, onSaved }: {
+/**
+ * 計画を組む画面（案2-A）。明日の計画にも、今日の計画（足す・並べ替える・当日に組む）にも使う
+ */
+export function PlanBuilder({ today, planFor, tracks, steps, leftovers, plans, resumeOrder, onSaved, onCancel, title, intro, defaultSource, saveLabel }: {
   today: string;
   planFor: string;
   tracks: Track[];
   steps: Step[];
   leftovers: Leftover[];
+  plans: Plan[];
+  /** 当日に組むときは、前回の続きが新しい順に並べる（再開しやすいものが先。§3.2） */
+  resumeOrder?: boolean;
   onSaved: (plan: Plan, result: SavePlanResult) => void;
+  onCancel?: () => void;
+  title: string;
+  intro?: string;
+  /** 新しく作るときの種類。明日 = 'night'、今日 = 'morning-quick'（当日に組んだ） */
+  defaultSource: Plan['source'];
+  saveLabel: string;
 }) {
   const draftKey = `plan-builder:${planFor}`;
   const [state, setState] = useState<BuilderState | null>(null);
@@ -54,7 +68,11 @@ export function PlanBuilder({ today, planFor, tracks, steps, leftovers, onSaved 
       if (!init) {
         const existing = await db.plans.get(planFor);
         init = existing
-          ? { window: existing.window, stops: existing.items.map((item) => ({ key: candidateKey(item.trackId, item.stepId), item })) }
+          ? {
+              window: existing.window,
+              source: existing.source,
+              stops: existing.items.map((item) => ({ key: candidateKey(item.trackId, item.stepId), item })),
+            }
           : { window: await lastWindow(), stops: [] };
       }
       if (alive) setState(init);
@@ -77,7 +95,8 @@ export function PlanBuilder({ today, planFor, tracks, steps, leftovers, onSaved 
 
   if (!state) return null;
 
-  const candidates = buildCandidates({ today, tracks, steps, leftovers });
+  const all = buildCandidates({ today, tracks, steps, leftovers });
+  const candidates = resumeOrder ? morningCandidates(all, tracks, lastDoneByTrack(plans, steps), all.length) : all;
   const trackName = (id: string) => tracks.find((t) => t.id === id)?.name ?? '';
   const minutes = state.stops.map((s) => s.item.minutes);
   const times = assignTimes(state.window.start, minutes);
@@ -105,7 +124,7 @@ export function PlanBuilder({ today, planFor, tracks, steps, leftovers, onSaved 
       lifeDate: planFor,
       window: state.window,
       createdAt: nowIso(),
-      source: 'night',
+      source: state.source ?? defaultSource,
       items: state.stops.map((s) => ({ ...s.item, firstStep: s.item.firstStep.trim() })),
     };
     const used = state.stops.map((s) => s.leftoverId).filter((x): x is string => !!x);
@@ -119,8 +138,9 @@ export function PlanBuilder({ today, planFor, tracks, steps, leftovers, onSaved 
   return (
     <>
       <div className="head">
-        <h1 className="title">明日のルートを組む</h1>
+        <h1 className="title">{title}</h1>
         <span className="sub">{formatLifeDateJa(planFor)}</span>
+        {intro && <span className="sub">{intro}</span>}
       </div>
 
       <div className="card">
@@ -202,9 +222,20 @@ export function PlanBuilder({ today, planFor, tracks, steps, leftovers, onSaved 
       </div>
 
       <button className="btn-primary" disabled={state.stops.length === 0 || busy} onClick={save}>
-        この計画で明日を迎える
+        {saveLabel}
       </button>
-      <span className="small muted center">明日の朝は、最初の行き先だけが開いた状態で始まります</span>
+      {onCancel && (
+        <button
+          className="btn-ghost"
+          onClick={async () => {
+            if (timer.current) window.clearTimeout(timer.current);
+            await db.drafts.delete(draftKey);
+            onCancel();
+          }}
+        >
+          変更せずに戻る
+        </button>
+      )}
     </>
   );
 }
