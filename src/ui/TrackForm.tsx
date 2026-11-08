@@ -10,6 +10,9 @@ export interface TrackFormValue {
   steps: NewStep[];
 }
 
+/** 最初の一手：始めるときに最初にやる、考えなくてもできるごく小さな動作 */
+export const FIRST_STEP_HELP = '最初の一手は、始めるときに最初にやる「考えなくてもできる小さな動作」です。迷わず手を動かし始めるために書いておきます。';
+
 const emptyStep = (): NewStep => ({ title: '', minutes: 45, firstStep: '' });
 
 export function isTrackFormValid(v: TrackFormValue): boolean {
@@ -53,10 +56,12 @@ export function TrackForm({ value, onChange }: { value: TrackFormValue; onChange
           <label className="field">
             <span>いつもの最初の一手</span>
             <input className="input" value={value.defaultFirstStep} placeholder="例：バッグを持って家を出る" onChange={(e) => set({ defaultFirstStep: e.target.value })} />
+            <span className="small muted">{FIRST_STEP_HELP}</span>
           </label>
         </>
       ) : (
         <div className="stack" style={{ gap: 12 }}>
+          <span className="small muted">{FIRST_STEP_HELP}</span>
           {value.steps.map((s, i) => (
             <div key={i} className="card" style={{ padding: 12, border: '1px solid var(--line-soft)' }}>
               <span className="label">ステップ {i + 1}</span>
