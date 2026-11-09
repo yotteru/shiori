@@ -87,7 +87,9 @@ export function fixedBlocksFor(lifeDate: string, routines: Routine[], plan?: Pla
         edited: !!moved,
       };
     });
-  const extra = (plan?.extraFixed ?? []).map((x) => ({ id: `extra:${x.id}`, extraId: x.id, title: x.title, start: x.start, min: x.min }));
+  const extra = (plan?.extraFixed ?? [])
+    .filter((x) => !x.allDay)
+    .map((x) => ({ id: `extra:${x.id}`, extraId: x.id, title: x.title, start: x.start, min: x.min }));
   return [...fromRoutines, ...extra].sort((a, b) => a.start - b.start);
 }
 
