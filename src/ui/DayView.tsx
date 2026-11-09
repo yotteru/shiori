@@ -52,7 +52,7 @@ import { allDayEvents, defaultWeekOffset, weekDates } from '../lib/week';
 
 type Day = 'today' | 'tomorrow' | 'week';
 const DAY_ORDER: Day[] = ['today', 'tomorrow', 'week'];
-type SheetKind = null | 'fixed' | 'reflect' | 'yesterday' | 'first' | 'confirmed' | 'quick' | 'stop' | 'memo' | 'measure';
+type SheetKind = null | 'fixed' | 'reflect' | 'first' | 'confirmed' | 'quick' | 'stop' | 'memo' | 'measure';
 const TAB_H = 56;
 
 export function DayView() {
@@ -295,11 +295,6 @@ export function DayView() {
             {day === 'week' ? `${weekTitle(weekDates_)} ${weekLabel(weekOffset)}` : `${formatLifeDateJa(date)} ${day === 'today' ? '今日' : '明日'}`}
           </h1>
           <div className="row-scroll" style={{ minWidth: 0 }}>
-            {day === 'today' && pendingYesterday && (
-              <button className="chip-btn accent" style={{ flex: 'none' }} onClick={() => setSheet('yesterday')}>
-                昨日の答え合わせ
-              </button>
-            )}
             {activeTracks.map((t) => (
               <span key={t.id} className="week-chip" style={{ background: t.type === 'habit' ? '#e3f2f0' : '#fdebdf' }}>
                 <b>{t.name}</b> <span className="mono">{formatDuration(weekly[t.id] ?? 0)}</span>
@@ -509,7 +504,7 @@ export function DayView() {
               </div>
             </div>
           ) : (
-            <button className="btn" onClick={() => setSheet('reflect')}>
+            <button className={`btn${pendingYesterday ? ' has-dot' : ''}`} onClick={() => setSheet('reflect')}>
               今日の振り返り（答え合わせ・ジャーナル）
             </button>
           )
@@ -542,7 +537,9 @@ export function DayView() {
               onQuick={() => setSheet('quick')}
               onMemo={() => setSheet('memo')}
               onMeasure={hasNumber ? () => setSheet('measure') : undefined}
-              onReflect={day === 'today' ? () => setSheet('reflect') : undefined}
+              // 主な操作に「今日の振り返り」を出している日は、ここには出さない（同じシートを開くため）
+              onReflect={day === 'today' && (active || next) ? () => setSheet('reflect') : undefined}
+              reflectDot={!!pendingYesterday}
             />
           </>
         )}
@@ -561,24 +558,20 @@ export function DayView() {
       {sheet === 'reflect' && (
         <Sheet onClose={() => setSheet(null)} label="今日の振り返り">
           <span style={{ fontSize: 16, fontWeight: 700 }}>今日の振り返り</span>
+          {pendingYesterday && (
+            <ReviewCard
+              key={`y-${pendingYesterday.items.map((i) => i.status).join()}`}
+              plan={pendingYesterday}
+              title="昨日の答え合わせが残っています"
+              note="昨日の行き先を済か未に決めてください。未にしたものは、今日の候補の先頭に並びます。"
+            />
+          )}
           {plan && plan.items.length > 0 ? (
             <ReviewCard key={plan.items.map((i) => i.status).join()} plan={plan} title="答え合わせ" />
           ) : (
             <p className="sub">今日の行き先はまだありません。</p>
           )}
           <JournalCard key={today} lifeDate={today} saved={data.journal?.text ?? ''} />
-          <button className="btn-primary" onClick={() => setSheet(null)}>
-            閉じる
-          </button>
-        </Sheet>
-      )}
-      {sheet === 'yesterday' && pendingYesterday && (
-        <Sheet onClose={() => setSheet(null)} label="昨日の答え合わせ">
-          <ReviewCard
-            plan={pendingYesterday}
-            title="昨日の答え合わせが残っています"
-            note="昨日の行き先を済か未に決めてください。未にしたものは、今日の候補の先頭に並びます。"
-          />
           <button className="btn-primary" onClick={() => setSheet(null)}>
             閉じる
           </button>
@@ -815,14 +808,30 @@ function FixedSheet({
   );
 }
 
-function QuickLink({ onQuick, onMemo, onMeasure, onReflect }: { onQuick: () => void; onMemo: () => void; onMeasure?: () => void; onReflect?: () => void }) {
+function QuickLink({
+  onQuick,
+  onMemo,
+  onMeasure,
+  onReflect,
+  reflectDot,
+}: {
+  onQuick: () => void;
+  onMemo: () => void;
+  onMeasure?: () => void;
+  onReflect?: () => void;
+  reflectDot?: boolean;
+}) {
   const n = 2 + (onMeasure ? 1 : 0) + (onReflect ? 1 : 0);
   return (
     <div className="ghosts" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
       <button onClick={onQuick}>＋ その場の5分</button>
       <button onClick={onMemo}>＋ メモ</button>
       {onMeasure && <button onClick={onMeasure}>＋ 測る</button>}
-      {onReflect && <button onClick={onReflect}>振り返り</button>}
+      {onReflect && (
+        <button className={reflectDot ? 'has-dot' : undefined} aria-label={reflectDot ? '振り返り（昨日の答え合わせが残っています）' : undefined} onClick={onReflect}>
+          振り返り
+        </button>
+      )}
     </div>
   );
 }
