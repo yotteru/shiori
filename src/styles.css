@@ -312,3 +312,6 @@ button.cell { padding: 0; background-color: transparent; cursor: pointer; }
 .week-chip.h { background: #e3f2f0; }
 .week-chip.p { background: #fdebdf; }
 .cal-dock .btn-primary, .cal-dock .btn-next, .cal-dock .cal-two .btn, .cal-dock > .stack > .btn, .cal-dock > .btn { min-height: 46px; }
+/* 昨日の答え合わせが残っている印（2026-11-09。見出しから振り返りへ移した） */
+.has-dot { position: relative; }
+.has-dot::after { content: ''; position: absolute; top: 6px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--next); }
