@@ -4,13 +4,16 @@ import type { PlanItem } from '../lib/types';
 import { Sheet } from './common';
 import { useDraft } from './useDraft';
 
+export const FEEL_LABEL = { 1: 'いつもどおり', 2: 'よかった', 3: 'すごくよかった' } as const;
+
 /** 済をつける：「次はここから」を1行残せる（空欄でもよい） */
-export function DoneSheet({ item, lifeDate, onClose, onDone }: { item: PlanItem; lifeDate: string; onClose: () => void; onDone: () => void }) {
+export function DoneSheet({ item, lifeDate, habit, onClose, onDone }: { item: PlanItem; lifeDate: string; habit?: boolean; onClose: () => void; onDone: () => void }) {
   const [note, setNote, clearDraft] = useDraft(`next-note:${lifeDate}:${item.id}`);
   const [busy, setBusy] = useState(false);
+  const [feel, setFeel] = useState<1 | 2 | 3 | undefined>(undefined);
   const submit = async () => {
     setBusy(true);
-    await markDone(lifeDate, item.id, note);
+    await markDone(lifeDate, item.id, note, undefined, feel);
     await clearDraft();
     onDone();
   };
@@ -31,6 +34,18 @@ export function DoneSheet({ item, lifeDate, onClose, onDone }: { item: PlanItem;
           onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
         />
       </label>
+      {habit && (
+        <div className="field">
+          <span>手応え（選ばなくても大丈夫）</span>
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            {([1, 2, 3] as const).map((f) => (
+              <button key={f} className={`chip-btn${feel === f ? ' accent' : ''}`} aria-pressed={feel === f} onClick={() => setFeel(feel === f ? undefined : f)}>
+                {FEEL_LABEL[f]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <button className="btn-primary" onClick={submit} disabled={busy}>
         済をつける
       </button>

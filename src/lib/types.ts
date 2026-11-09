@@ -6,7 +6,12 @@ export const SCHEMA_VERSION = 1 as const;
 export interface Track {
   id: string;
   name: string;
-  type: 'project' | 'habit';
+  /** number = 数値型（体重など。2026-11-09）。行き先の候補には出ない */
+  type: 'project' | 'habit' | 'number';
+  /** 数値型の単位（kg・％・万円など） */
+  unit?: string;
+  /** 数値型の目標（任意。グラフに線を引くだけで、届かなくても責めない） */
+  target?: number;
   createdAt: string;
   archivedAt?: string;
   /** 習慣型の既定値 */
@@ -100,6 +105,8 @@ export interface PlanItem {
   start?: number;
   /** きっかけ（「〜したら」→ 最初の一手） */
   cue?: string;
+  /** 習慣型の手応え（済のときに任意で。1 いつもどおり / 2 よかった / 3 すごくよかった。2026-11-09） */
+  feel?: 1 | 2 | 3;
 }
 
 /**
@@ -136,6 +143,27 @@ export interface Memo {
   /** 取り組みにしたとき、その取り組み */
   trackId?: string;
   madeAt?: string;
+  updatedAt?: string;
+}
+
+/** 変化メモ（2026-11-09）：鏡・服の感触など、感覚的な進歩を取り組みごとに1行で残す */
+export interface ChangeNote {
+  id: string;
+  trackId: string;
+  lifeDate: string;
+  text: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/** 数値型の記録（2026-11-09）：1回測ったら1件 */
+export interface Measure {
+  id: string;
+  trackId: string;
+  lifeDate: string;
+  value: number;
+  /** 測った時刻 */
+  at: string;
   updatedAt?: string;
 }
 

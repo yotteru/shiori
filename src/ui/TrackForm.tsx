@@ -1,4 +1,5 @@
 import type { NewStep } from '../lib/actions';
+import { parseMeasure } from '../lib/reflection';
 import type { Track } from '../lib/types';
 import { MinutesSelect } from './common';
 
@@ -9,6 +10,9 @@ export interface TrackFormValue {
   defaultFirstStep: string;
   defaultCue: string;
   steps: NewStep[];
+  /** 数値型 */
+  unit: string;
+  target: string;
 }
 
 /** 最初の一手：始めるときに最初にやる、考えなくてもできるごく小さな動作 */
@@ -19,6 +23,7 @@ const emptyStep = (): NewStep => ({ title: '', minutes: 45, firstStep: '' });
 export function isTrackFormValid(v: TrackFormValue): boolean {
   if (!v.name.trim()) return false;
   if (v.type === 'project') return v.steps.some((s) => s.title.trim());
+  if (v.type === 'number') return !v.target.trim() || parseMeasure(v.target) !== null;
   return true;
 }
 
@@ -36,19 +41,37 @@ export function TrackForm({ value, onChange }: { value: TrackFormValue; onChange
       </label>
       <div className="field">
         <span>種類</span>
-        <div className="seg" role="group" aria-label="種類">
+        <div className="seg" role="group" aria-label="種類" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <button type="button" aria-pressed={value.type === 'habit'} onClick={() => set({ type: 'habit' })}>
             習慣型
           </button>
           <button type="button" aria-pressed={value.type === 'project'} onClick={() => set({ type: 'project' })}>
             プロジェクト型
           </button>
+          <button type="button" aria-pressed={value.type === 'number'} onClick={() => set({ type: 'number' })}>
+            数値型
+          </button>
         </div>
         <span className="sub">
-          {value.type === 'habit' ? '毎回同じ行き先を繰り返す（例：ジムに行く）' : 'ステップに分けられて、終わりがある'}
+          {value.type === 'habit'
+            ? '毎回同じ行き先を繰り返す（例：ジムに行く）'
+            : value.type === 'project'
+              ? 'ステップに分けられて、終わりがある'
+              : '結果の数字の移り変わりを見る（例：体重）。行き先の候補には出ない'}
         </span>
       </div>
-      {value.type === 'habit' ? (
+      {value.type === 'number' ? (
+        <>
+          <label className="field">
+            <span>単位（空欄でも可）</span>
+            <input className="input" value={value.unit} placeholder="例：kg、％、万円" onChange={(e) => set({ unit: e.target.value })} />
+          </label>
+          <label className="field">
+            <span>目標（任意。グラフに線を引くだけ）</span>
+            <input className="input" inputMode="decimal" value={value.target} placeholder="例：70" onChange={(e) => set({ target: e.target.value })} />
+          </label>
+        </>
+      ) : value.type === 'habit' ? (
         <>
           <label className="field">
             <span>いつもの所要時間</span>
@@ -93,11 +116,15 @@ export function TrackForm({ value, onChange }: { value: TrackFormValue; onChange
 }
 
 export function emptyTrackForm(): TrackFormValue {
-  return { name: '', type: 'habit', defaultMinutes: 60, defaultFirstStep: '', defaultCue: '', steps: [emptyStep()] };
+  return { name: '', type: 'habit', defaultMinutes: 60, defaultFirstStep: '', defaultCue: '', steps: [emptyStep()], unit: '', target: '' };
 }
 
 export function trackFormToInput(v: TrackFormValue) {
   const base = { name: v.name.trim(), type: v.type };
+  if (v.type === 'number') {
+    const target = v.target.trim() ? parseMeasure(v.target) : null;
+    return { input: { ...base, ...(v.unit.trim() ? { unit: v.unit.trim() } : {}), ...(target !== null ? { target } : {}) }, steps: [] };
+  }
   if (v.type === 'habit') {
     return { input: { ...base, defaultMinutes: v.defaultMinutes, defaultFirstStep: v.defaultFirstStep.trim() || undefined, defaultCue: v.defaultCue.trim() || undefined }, steps: [] };
   }
