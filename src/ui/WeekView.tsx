@@ -243,7 +243,22 @@ function WeekCalendar({
 }
 
 /** 日のシート：休日・その日だけの予定・やることの札 */
-export function DaySheet({ date, plan, routines, tracks, onClose }: { date: string; plan?: Plan; routines: Parameters<typeof fixedBlocksFor>[1]; tracks: Track[]; onClose: () => void }) {
+export function DaySheet({
+  date,
+  plan,
+  routines,
+  tracks,
+  source = 'night',
+  onClose,
+}: {
+  date: string;
+  plan?: Plan;
+  routines: Parameters<typeof fixedBlocksFor>[1];
+  tracks: Track[];
+  /** 今日の見出しから開いたときは 'morning-quick'（計画がまだないときに作る計画の出どころ） */
+  source?: Plan['source'];
+  onClose: () => void;
+}) {
   const [title, setTitle] = useState('');
   const [allDay, setAllDay] = useState(false);
   const [start, setStart] = useState(10 * 60);
@@ -259,7 +274,7 @@ export function DaySheet({ date, plan, routines, tracks, onClose }: { date: stri
   const add = async () => {
     if (!title.trim()) return;
     if (allDay) await addAllDayFixed(date, title.trim());
-    else await addExtraFixed(date, title.trim(), start, Math.max(30, end - start), 'night');
+    else await addExtraFixed(date, title.trim(), start, Math.max(30, end - start), source);
     setTitle('');
   };
 
@@ -267,7 +282,7 @@ export function DaySheet({ date, plan, routines, tracks, onClose }: { date: stri
     <Sheet onClose={onClose} label={formatLifeDateJa(date)}>
       <span style={{ fontSize: 20, fontWeight: 700 }}>{formatLifeDateJa(date)}</span>
       <label className="row" style={{ gap: 8, alignItems: 'center' }}>
-        <input type="checkbox" checked={weekend || !!plan?.holiday} disabled={weekend} onChange={(e) => setHoliday(date, e.target.checked, 'night')} />
+        <input type="checkbox" checked={weekend || !!plan?.holiday} disabled={weekend} onChange={(e) => setHoliday(date, e.target.checked, source)} />
         <span>{weekend ? '土日は休日です' : 'この日は休日として扱う（祝日・有休）'}</span>
       </label>
 

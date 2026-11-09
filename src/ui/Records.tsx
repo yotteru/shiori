@@ -9,6 +9,7 @@ import { daysSinceTouched } from '../lib/tracks';
 import type { ChangeNote, Journal, Measure, Plan, StartSession, Track } from '../lib/types';
 import { addChange, deleteChange, measureSeries, plannedNights, timeline, weekFeel } from '../lib/reflection';
 import { FEEL_LABEL } from './DoneSheet';
+import { MeasureSheet } from './MeasureSheet';
 import { quickCount, weekDates, weekSquares, type Square } from '../lib/week';
 
 // 記録タブ（2026-11-08）：眺める・振り返る場所。やった時間（始めた記録があれば実際の時間）と、始めた回数
@@ -328,6 +329,9 @@ function ChangeNotes({ track, notes, today }: { track: Track; notes: ChangeNote[
 
 /** 数値型：直近12週の線グラフ。目標の線は任意（届かなくても色や言葉は変えない） */
 function NumberCard({ track, measures, today }: { track: Track; measures: Measure[]; today: string }) {
+  // 「＋ 測る」は結果を見るこの場所で入れる（2026-11-09 にしおりタブから移した）
+  const [measuring, setMeasuring] = useState(false);
+  const [saved, setSaved] = useState('');
   const from = addDays(today, -83);
   const series = measureSeries(measures, track.id, from, today);
   const last = series[series.length - 1];
@@ -349,8 +353,12 @@ function NumberCard({ track, measures, today }: { track: Track; measures: Measur
     <section className="viz-card" aria-label={track.name}>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span style={{ fontSize: 15, fontWeight: 700 }}>{track.name}</span>
-        <span className="small muted">数値</span>
+        <button className="btn" style={{ minHeight: 34, padding: '0 12px', fontSize: 13 }} onClick={() => setMeasuring(true)}>
+          ＋ 測る
+        </button>
       </div>
+      {saved && <span className="small muted">{saved}</span>}
+      {measuring && <MeasureSheet date={today} tracks={[track]} onClose={() => setMeasuring(false)} onSaved={setSaved} />}
       {last ? (
         <span>
           <b className="mono" style={{ fontSize: 22 }}>
@@ -361,7 +369,7 @@ function NumberCard({ track, measures, today }: { track: Track; measures: Measur
           </span>
         </span>
       ) : (
-        <span className="small muted">しおりタブの「＋ 測る」から数字を入れると、ここに線グラフが出ます。</span>
+        <span className="small muted">「＋ 測る」から数字を入れると、ここに線グラフが出ます。</span>
       )}
       {series.length > 0 && (
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${track.name}の直近12週`} style={{ maxWidth: '100%' }}>
