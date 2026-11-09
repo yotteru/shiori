@@ -1,5 +1,5 @@
 import { itemsByStart } from './calendar';
-import { addDays } from './lifeDate';
+import { addDays, weekday } from './lifeDate';
 import { activeSession } from './records';
 import type { Meta, Plan, StartSession } from './types';
 
@@ -43,16 +43,28 @@ export interface ReminderItem {
  * 送る予定の一覧。今日と明日の、まだ済でも未でもない行き先が対象。
  * いま始めている行き先と、過ぎた時刻は除く。target='first' はその日の最初の行き先だけ
  */
+export const WEEK_REMINDER_MINUTE = 21 * 60;
+export const WEEK_REMINDER_BODY = '来週の見通しを見ておきますか（しおりタブの「週」）';
+
 export function buildStartReminders(
   plans: Plan[],
   today: string,
   settings: StartReminderSettings,
   sessions: StartSession[],
   nowMs: number,
+  weekReminder = false,
 ): ReminderItem[] {
-  if (!settings.enabled) return [];
-  const active = activeSession(sessions);
   const out: ReminderItem[] = [];
+  // 日曜の夜の「来週の見通し」（今日・明日のうち日曜の21時）
+  if (weekReminder) {
+    for (const date of [today, addDays(today, 1)]) {
+      if (weekday(date) !== 0) continue;
+      const at = startInstant(date, WEEK_REMINDER_MINUTE);
+      if (at > nowMs) out.push({ send_at: new Date(at).toISOString(), body: WEEK_REMINDER_BODY });
+    }
+  }
+  if (!settings.enabled) return out.sort((a, b) => a.send_at.localeCompare(b.send_at));
+  const active = activeSession(sessions);
   for (const date of [today, addDays(today, 1)]) {
     const plan = plans.find((p) => p.lifeDate === date);
     if (!plan) continue;

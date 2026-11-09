@@ -223,3 +223,65 @@ a.btn { display: flex; align-items: center; justify-content: center; text-decora
 .meter i { display: block; height: 100%; background: var(--done); border-radius: 0 4px 4px 0; }
 .viz-tip { position: fixed; z-index: 50; background: var(--card-strong); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 12px; pointer-events: none; white-space: nowrap; }
 .viz-tip b { font-family: var(--mono); }
+
+/* 週の見通し（2026-11-09） */
+.weekbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.seg-small button { min-height: 36px; font-size: 13px; }
+.alloc { display: flex; flex-direction: column; gap: 6px; }
+.alloc-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.alloc-row .nm { font-size: 14px; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.alloc-row .days { display: grid; grid-template-columns: repeat(7, 22px); gap: 3px; flex: none; }
+.alloc-row .d { height: 22px; border-radius: 6px; background: var(--track); font-size: 10px; display: grid; place-items: center; color: var(--muted); }
+.alloc-row .d.on.p { background: #fdebdf; color: #9a3412; font-weight: 700; box-shadow: inset 0 0 0 1.5px #9a3412; }
+.alloc-row .d.on.h { background: #e3f2f0; color: #115e59; font-weight: 700; box-shadow: inset 0 0 0 1.5px #115e59; }
+.wcal { background: var(--surface); border-radius: 14px; padding: 8px 6px 8px 2px; display: grid; grid-template-columns: 22px repeat(7, minmax(0, 1fr)); gap: 3px; }
+.wc-head { border: 0; background: transparent; padding: 2px 0 4px; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; border-radius: 8px; }
+.wc-head b { font-family: var(--mono); font-size: 15px; font-weight: 600; line-height: 1.2; }
+.wc-head > span { font-size: 11px; color: var(--muted); }
+.wc-head .hol { color: var(--next); font-weight: 700; }
+.wc-head.today { background: var(--next); color: #fff; }
+.wc-head.today > span, .wc-head.today .hol { color: #fff; }
+.wc-head.past, .wc-col.past { opacity: 0.45; }
+.wc-tags { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 2px 2px 0; min-height: 18px; }
+.wc-tags i { font-style: normal; font-size: 10px; font-weight: 700; line-height: 1.5; border-radius: 4px; text-align: center; background: #fdebdf; color: #9a3412; overflow: hidden; white-space: nowrap; }
+.wc-tags i.h { background: #e3f2f0; color: #115e59; }
+.wc-axis { position: relative; }
+.wc-axis span { position: absolute; right: 2px; transform: translateY(-50%); font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.wc-col { position: relative; border: 1px solid var(--line-soft); border-radius: 6px; background: var(--surface); padding: 0; overflow: hidden; min-width: 0; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 47px, var(--line-soft) 47px, var(--line-soft) 48px); }
+.wc-col.today { border: 2px solid var(--next); }
+.wc-blk { position: absolute; left: 2px; right: 2px; border-radius: 4px; font-size: 10px; line-height: 1.2; padding: 2px; overflow: hidden; color: var(--muted); text-align: left; }
+.wc-blk.fix { background: var(--track); }
+.wc-blk.ev { background: #9aa3ae; color: #fff; font-weight: 700; }
+.wc-blk.it { left: 4px; right: 4px; border: 1px solid #c2410c; background: #fdebdf; color: #9a3412; font-weight: 700; }
+.wc-blk.it.h { border-color: #0f766e; background: #e3f2f0; color: #115e59; }
+.wc-free { text-align: center; font-size: 10px; color: var(--muted); line-height: 1.2; }
+.wc-free b { display: block; font-size: 13px; color: var(--text); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: var(--muted); align-items: center; margin-top: 8px; }
+.legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -3px; margin-right: 3px; }
+.wk-day { width: 100%; text-align: left; border: 0; background: var(--surface); border-radius: 14px; padding: 10px 12px; display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+.wk-day.past { opacity: 0.55; }
+.wk-day.today { box-shadow: inset 0 0 0 2px var(--next); }
+.wk-day .dt { display: flex; flex-direction: column; align-items: center; }
+.wk-day .dt b { font-size: 22px; line-height: 1.1; font-weight: 600; }
+.wk-day .dt span { font-size: 12px; color: var(--muted); }
+.wk-day .dt .hol { color: var(--next); font-weight: 700; }
+.wk-day .mid { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.wk-day .fx { font-size: 12px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
+.wk-day .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.wk-day .chip { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 9px; background: #fdebdf; color: #9a3412; }
+.wk-day .chip.h { background: #e3f2f0; color: #115e59; }
+.wk-day .chip.empty { background: transparent; color: var(--muted); font-weight: 500; border: 1px dashed var(--line); }
+.wk-day .free { text-align: right; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.wk-day .free b { display: block; font-size: 15px; color: var(--text); font-weight: 600; }
+.tag-hol { display: inline-block; font-size: 11px; font-weight: 700; color: var(--next); border: 1.5px solid var(--next); border-radius: 6px; padding: 0 5px; margin-right: 4px; }
+.chip-btn.tag-on-p { background: #fdebdf; color: #9a3412; border-color: #9a3412; font-weight: 700; }
+.chip-btn.tag-on-h { background: #e3f2f0; color: #115e59; border-color: #115e59; font-weight: 700; }
+.tag-mark { display: inline-block; font-size: 10px; color: #fff; background: var(--next); border-radius: 4px; padding: 0 4px; margin-right: 4px; }
+.grid7 { display: grid; grid-template-columns: minmax(0, 1fr) repeat(7, 26px); gap: 4px; align-items: center; }
+.grid7 .hd { font-size: 11px; color: var(--muted); text-align: center; }
+.grid7 .nm { font-size: 13px; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.cell { display: inline-block; width: 26px; height: 26px; border-radius: 7px; border: 1.5px dashed var(--line-soft); }
+.legend .cell { width: 14px; height: 14px; border-radius: 4px; vertical-align: -3px; margin-right: 3px; }
+.cell.plan { border: 1.5px solid var(--line); }
+.cell.half { border: 1.5px solid var(--done); background: linear-gradient(135deg, var(--done) 50%, transparent 50%); }
+.cell.full { border: 1.5px solid var(--done); background: var(--done); }

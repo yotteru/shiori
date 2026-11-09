@@ -18,7 +18,7 @@ export function useStartReminderSync() {
     [today],
   );
   const sig = data
-    ? JSON.stringify(buildStartReminders(data.plans, today, startReminderSettings(data.meta), data.starts, Date.now()))
+    ? JSON.stringify(buildStartReminders(data.plans, today, startReminderSettings(data.meta), data.starts, Date.now(), !!data.meta.weekReminder))
     : null;
   useEffect(() => {
     if (sig === null) return;
