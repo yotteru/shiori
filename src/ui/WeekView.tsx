@@ -6,7 +6,7 @@ import { db, getMeta } from '../lib/db';
 import { formatLifeDateJa, weekday } from '../lib/lifeDate';
 import type { Plan, Track } from '../lib/types';
 import { allDayEvents, allocation, defaultWeekOffset, freeMinutes, isHoliday, weekDates } from '../lib/week';
-import { Sheet } from './common';
+import { EndSelect, formatEnd, Sheet } from './common';
 
 // しおりタブの「週」（2026-11-09。要件メモ「週の見通しと振り返り」）。
 // 月〜日の見通し：決まっている予定と「この日にやること」の札だけ。時刻つきの行き先は前の晩に置く
@@ -293,8 +293,6 @@ function DaySheet({ date, plan, routines, tracks, onClose }: { date: string; pla
   const intents = plan?.intents ?? [];
   const starts: number[] = [];
   for (let m = 0; m <= 23 * 60 + 30; m += 15) starts.push(m);
-  const ends: number[] = [];
-  for (let m = start + 30; m <= 24 * 60; m += 15) ends.push(m);
 
   const add = async () => {
     if (!title.trim()) return;
@@ -320,7 +318,7 @@ function DaySheet({ date, plan, routines, tracks, onClose }: { date: string; pla
           <div key={x.id} className="row" style={{ justifyContent: 'space-between' }}>
             <span>
               <b>{x.title}</b>{' '}
-              <span className="small muted mono">{x.allDay ? '終日' : `${formatMinute(x.start)}–${formatMinute(x.start + x.min)}`}</span>
+              <span className="small muted mono">{x.allDay ? '終日' : `${formatMinute(x.start)}–${formatEnd(x.start + x.min)}`}</span>
             </span>
             <button className="btn-ghost" aria-label={`${x.title}を消す`} onClick={() => removeExtraFixed(date, x.id)}>
               ✕
@@ -351,13 +349,7 @@ function DaySheet({ date, plan, routines, tracks, onClose }: { date: string; pla
               ))}
             </select>
             <span className="small muted">〜</span>
-            <select className="select" aria-label="終わり" value={end} onChange={(e) => setEnd(Number(e.target.value))}>
-              {ends.map((m) => (
-                <option key={m} value={m}>
-                  {formatMinute(m)}
-                </option>
-              ))}
-            </select>
+            <EndSelect start={start} value={end} onChange={setEnd} />
           </div>
         )}
         <button className="btn" disabled={!title.trim()} onClick={() => void add()}>
