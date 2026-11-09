@@ -36,7 +36,7 @@ export function WeekView({ today, hourJst, header }: { today: string; hourJst: n
     async () => ({
       plans: await db.plans.where('lifeDate').between(dates[0], dates[6], true, true).toArray(),
       routines: await db.routines.toArray(),
-      tracks: (await db.tracks.orderBy('createdAt').toArray()).filter((t) => !t.archivedAt),
+      tracks: (await db.tracks.orderBy('createdAt').toArray()).filter((t) => !t.archivedAt && t.type !== 'number'),
       view: (await getMeta()).calendarView ?? DEFAULT_VIEW,
     }),
     [dates[0]],
