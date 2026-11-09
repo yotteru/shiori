@@ -21,6 +21,7 @@ import {
   moveExtraFixed,
   moveItem,
   placeCandidate,
+  placeIntents,
   removeExtraFixed,
   removeItem,
   setFixedEdit,
@@ -41,6 +42,7 @@ import { Calendar, PX_PER_MIN, type CalBlock } from './Calendar';
 import { MinutesSelect, Sheet, TimeSelect, Toast } from './common';
 import { DoneSheet } from './DoneSheet';
 import { MemoInput } from './MemoBox';
+import { MeasureSheet } from './MeasureSheet';
 import { JournalCard, ReviewCard } from './Reflection';
 import { WeekView } from './WeekView';
 import { allDayEvents } from '../lib/week';
@@ -48,7 +50,7 @@ import { allDayEvents } from '../lib/week';
 // しおりタブ（2026-11-08 カレンダー版）。「今日」「明日」をいつでも切り替えて、縦のカレンダーで組む
 
 type Day = 'today' | 'tomorrow' | 'week';
-type SheetKind = null | 'fixed' | 'reflect' | 'yesterday' | 'first' | 'confirmed' | 'quick' | 'stop' | 'memo';
+type SheetKind = null | 'fixed' | 'reflect' | 'yesterday' | 'first' | 'confirmed' | 'quick' | 'stop' | 'memo' | 'measure';
 const TAB_H = 56;
 
 export function DayView() {
@@ -177,7 +179,10 @@ export function DayView() {
   const heldCand = cands.find((c) => c.key === held);
 
   const weekly = weeklyDoneMinutes(data.plans, today, data.starts);
-  const activeTracks = data.tracks.filter((t) => !t.archivedAt);
+  const activeTracks = data.tracks.filter((t) => !t.archivedAt && t.type !== 'number');
+  const numberTracks = data.tracks.filter((t) => !t.archivedAt && t.type === 'number');
+  const hasNumber = numberTracks.length > 0;
+  const unplacedIntents = (plan?.intents ?? []).filter((id) => !items.some((i) => i.trackId === id) && cands.some((c) => c.trackId === id)).length;
   const pendingYesterday = data.yesterday?.items.some((i) => i.status === 'planned') ? data.yesterday : undefined;
   // 始めて、まだ終えていないもの（画面のタイマーは置かない。2026-11-08）
   const active = activeSession(data.starts);
@@ -450,17 +455,29 @@ export function DayView() {
                   済をつける
                 </button>
               </div>
-              <QuickLink onQuick={() => setSheet('quick')} onMemo={() => setSheet('memo')} />
+              <QuickLink onQuick={() => setSheet('quick')} onMemo={() => setSheet('memo')} onMeasure={hasNumber ? () => setSheet('measure') : undefined} />
             </div>
           ) : (
             <div className="stack" style={{ gap: 4 }}>
               <button className="btn" onClick={() => setSheet('reflect')}>
                 今日の振り返り（答え合わせ・ジャーナル）
               </button>
-              <QuickLink onQuick={() => setSheet('quick')} onMemo={() => setSheet('memo')} />
+              <QuickLink onQuick={() => setSheet('quick')} onMemo={() => setSheet('memo')} onMeasure={hasNumber ? () => setSheet('measure') : undefined} />
             </div>
           )
         ) : (
+          <div className="stack" style={{ gap: 6 }}>
+          {unplacedIntents > 0 && (
+            <button
+              className="btn"
+              onClick={async () => {
+                const n = await placeIntents(date, cands, data.routines, view);
+                setToast({ message: n ? `札の${n}件を空きに置きました。動かして調整できます` : '入る空きが見つかりませんでした' });
+              }}
+            >
+              札のぶんを置く（{unplacedIntents}件）
+            </button>
+          )}
           <button
             className="btn-primary"
             disabled={!plan || plan.items.length === 0}
@@ -471,6 +488,7 @@ export function DayView() {
           >
             この計画で明日を迎える
           </button>
+          </div>
         )}
       </div>
 
@@ -532,6 +550,7 @@ export function DayView() {
           </button>
         </Sheet>
       )}
+      {sheet === 'measure' && <MeasureSheet date={date} tracks={numberTracks} onClose={() => setSheet(null)} onSaved={(m) => setToast({ message: m })} />}
       {sheet === 'memo' && (
         <Sheet onClose={() => setSheet(null)} label="メモ箱に入れる">
           <span style={{ fontSize: 18, fontWeight: 700 }}>メモ箱に入れる</span>
@@ -579,6 +598,7 @@ export function DayView() {
         <DoneSheet
           item={doneFor}
           lifeDate={date}
+          habit={trackById.get(doneFor.trackId)?.type === 'habit'}
           onClose={() => setDoneFor(null)}
           onDone={() => {
             if (active && active.planItemId === doneFor.id) void finish(active, 'done');
@@ -722,15 +742,20 @@ function FixedSheet({
   );
 }
 
-function QuickLink({ onQuick, onMemo }: { onQuick: () => void; onMemo: () => void }) {
+function QuickLink({ onQuick, onMemo, onMeasure }: { onQuick: () => void; onMemo: () => void; onMeasure?: () => void }) {
   return (
-    <div className="cal-two">
+    <div className="cal-two" style={onMeasure ? { gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' } : undefined}>
       <button className="btn-ghost" style={{ minHeight: 32 }} onClick={onQuick}>
         ＋ その場の5分
       </button>
       <button className="btn-ghost" style={{ minHeight: 32 }} onClick={onMemo}>
         ＋ メモ
       </button>
+      {onMeasure && (
+        <button className="btn-ghost" style={{ minHeight: 32 }} onClick={onMeasure}>
+          ＋ 測る
+        </button>
+      )}
     </div>
   );
 }

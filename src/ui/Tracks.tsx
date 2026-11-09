@@ -19,6 +19,7 @@ import { formatLifeDateJa, lifeDate } from '../lib/lifeDate';
 import { daysSinceTouched, isStalled } from '../lib/tracks';
 import type { Leftover, Step, Track } from '../lib/types';
 import { MinutesSelect, Sheet } from './common';
+import { parseMeasure } from '../lib/reflection';
 import { MemoBox } from './MemoBox';
 import { emptyTrackForm, isTrackFormValid, TrackForm, trackFormToInput } from './TrackForm';
 
@@ -112,17 +113,19 @@ function TrackCard({ track, steps, lastDoneAt, today, onOpen }: {
 }) {
   const sorted = steps.slice().sort((a, b) => a.order - b.order);
   const nextTitle = sorted.find((s) => s.status === 'todo')?.title;
-  const stalled = isStalled(track, lastDoneAt, today);
+  const stalled = track.type !== 'number' && isStalled(track, lastDoneAt, today);
   return (
     <button className="card" style={{ border: 0, textAlign: 'left', width: '100%' }} onClick={onOpen}>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span style={{ fontSize: 15, fontWeight: 700 }}>{track.name}</span>
-        <span className="small muted">{track.type === 'project' ? 'プロジェクト' : '習慣'}</span>
+        <span className="small muted">{track.type === 'project' ? 'プロジェクト' : track.type === 'number' ? '数値' : '習慣'}</span>
       </div>
       {track.goal && <span className="small">なりたい状態：{track.goal}</span>}
       {/* 進み具合のグラフは「記録」タブへ。ここは決める・直すための一覧 */}
       <span className="small muted">
-        {track.type === 'project'
+        {track.type === 'number'
+          ? `単位 ${track.unit ?? 'なし'}${track.target !== undefined ? `・目標 ${track.target}` : ''}`
+          : track.type === 'project'
           ? `${nextTitle ? `次：${nextTitle}・` : ''}ステップ ${sorted.filter((s) => s.status === 'done').length} / ${sorted.length} 完了`
           : `いつもの長さ ${track.defaultMinutes ?? 60}分${track.defaultFirstStep ? `・最初の一手：${track.defaultFirstStep}` : ''}`}
       </span>
@@ -195,8 +198,9 @@ function TrackDetail({ track, steps, onBack }: { track: Track; steps: Step[]; on
         <button className="btn-ghost" onClick={onBack}>
           戻る
         </button>
-        <span className="small muted">{track.type === 'project' ? 'プロジェクト型' : '習慣型'}</span>
+        <span className="small muted">{track.type === 'project' ? 'プロジェクト型' : track.type === 'number' ? '数値型' : '習慣型'}</span>
       </div>
+      {track.type !== 'number' && (
       <div className="field">
         <span>種類</span>
         <div className="seg" role="group" aria-label="種類">
@@ -217,6 +221,7 @@ function TrackDetail({ track, steps, onBack }: { track: Track; steps: Step[]; on
           ))}
         </div>
       </div>
+      )}
       <label className="field">
         <span>名前</span>
         <input
@@ -236,7 +241,28 @@ function TrackDetail({ track, steps, onBack }: { track: Track; steps: Step[]; on
         />
       </label>
 
-      {track.type === 'habit' ? (
+      {track.type === 'number' ? (
+        <div className="card">
+          <label className="field">
+            <span>単位</span>
+            <input className="input" defaultValue={track.unit ?? ''} placeholder="例：kg" onBlur={(e) => updateTrack(track.id, { unit: e.target.value.trim() || undefined })} />
+          </label>
+          <label className="field">
+            <span>目標（任意。グラフに線を引くだけ）</span>
+            <input
+              className="input"
+              inputMode="decimal"
+              defaultValue={track.target ?? ''}
+              placeholder="例：70"
+              onBlur={(e) => {
+                const v = e.target.value.trim() ? parseMeasure(e.target.value) : null;
+                if (!e.target.value.trim() || v !== null) void updateTrack(track.id, { target: v ?? undefined });
+              }}
+            />
+          </label>
+          <span className="small muted">記録は、しおりタブの「＋ 測る」から入れます。グラフは記録タブに出ます。</span>
+        </div>
+      ) : track.type === 'habit' ? (
         <div className="card">
           <label className="field">
             <span>いつもの所要時間</span>

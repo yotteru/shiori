@@ -47,6 +47,7 @@
 6. [supabase/migrations/0006_sync_starts.sql](supabase/migrations/0006_sync_starts.sql)（始めた記録の同期）
 7. [supabase/migrations/0007_start_reminders.sql](supabase/migrations/0007_start_reminders.sql)（予定の開始時刻の通知。手順 10 も必要）
 8. [supabase/migrations/0008_sync_memos.sql](supabase/migrations/0008_sync_memos.sql)（メモ箱の同期）
+9. [supabase/migrations/0009_sync_changes_measures.sql](supabase/migrations/0009_sync_changes_measures.sql)（変化メモと数値型の記録の同期）
 
 実行後、次の SQL でジョブが登録されていることを確認します。
 
@@ -156,6 +157,10 @@ SQL Editor で [supabase/migrations/0007_start_reminders.sql](supabase/migration
 - **動作確認**（開発用）：`npm run dev` で開いたときだけ、設定の一番下に「開発用：今の日時を指定する」が出ます。日付をずらして試せます（上書き中は画面上部にオレンジの帯）。公開しているアプリには出ません
 - **メモ箱**：思いついたことは、しおりタブの「＋ メモ」か、取り組みタブのメモ箱に1行で入れる。メモのままでは候補に出ない。取り組みにしたくなったら「整える」（なりたい状態 → 習慣か終わりがあるか → ステップと最初の一手）
 - **週**：しおりタブの「週」で月〜日を見る（カレンダーとリストを切り替え）。日をタップして、その日だけの予定（終日も可）・休日・「この日にやること」の札を決める。札を付けた取り組みは、前の晩にその日を組むとき候補の先頭に「札」の印つきで並ぶ。記録タブの7マスで、その週に何が埋まったかを眺める
+- **数値型（体重など）**：取り組みを「数値型」で作り（単位と目標は任意）、しおりタブの「＋ 測る」から数字を入れる。記録タブに線グラフ
+- **記録タブ**：週の7マス（習慣は手応えが強いほど濃い。「前の晩に組んだ」の段つき。マスをタップするとその日のふりかえりへ）、習慣型の「変化メモ」、いちばん下に「ふりかえり」（1行ジャーナル・済・変化メモ・測った値を新しい順に）
+- **札のぶんを置く**：明日（今日）の画面で、週の札を付けた取り組みを空きにまとめて仮に置く。あとで動かして調整する
+- **誘惑を遠ざける**：[docs/SCREEN_TIME.md](docs/SCREEN_TIME.md)（スクリーンタイムとオートメーション）。集中モードの切り忘れ防止は [docs/SHORTCUTS.md](docs/SHORTCUTS.md) のステップ3
 
 ## 開発
 
