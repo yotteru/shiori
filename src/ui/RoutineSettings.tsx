@@ -4,7 +4,7 @@ import { DEFAULT_VIEW, formatDuration, formatMinute } from '../lib/calendar';
 import { addRoutine, deleteRoutine, setCalendarView, updateRoutine } from '../lib/calendarActions';
 import { db, getMeta } from '../lib/db';
 import type { Routine } from '../lib/types';
-import { MinutesSelect, TimeSelect } from './common';
+import { EndSelect, formatEnd, TimeSelect } from './common';
 
 // 設定：いつもの固定とカレンダーの表示（2026-11-08）
 
@@ -71,7 +71,7 @@ function RoutineRow({ r }: { r: Routine }) {
       <button className="row" style={{ justifyContent: 'space-between', border: 0, background: 'transparent', padding: 0, minHeight: 36, width: '100%', textAlign: 'left' }} onClick={() => setOpen(!open)}>
         <b>{r.title}</b>
         <span className="small muted mono">
-          {formatMinute(r.start)}–{formatMinute(r.start + r.min)}・{label || '曜日なし'}
+          {formatMinute(r.start)}–{formatEnd(r.start + r.min)}・{label || '曜日なし'}
         </span>
       </button>
       {open && (
@@ -82,7 +82,8 @@ function RoutineRow({ r }: { r: Routine }) {
           </label>
           <div className="row">
             <TimeSelect label="開始" value={formatMinute(r.start)} onChange={(v) => updateRoutine(r.id, { start: toMin(v) })} />
-            <MinutesSelect value={r.min} onChange={(m) => updateRoutine(r.id, { min: m })} />
+            <span className="small muted">〜</span>
+            <EndSelect start={r.start} value={r.start + r.min} onChange={(end) => updateRoutine(r.id, { min: end - r.start })} />
           </div>
           <DaysPicker days={r.days} onChange={(d) => updateRoutine(r.id, { days: d })} />
           <button className="btn-ghost" style={{ alignSelf: 'flex-start', color: 'var(--warn)' }} onClick={() => deleteRoutine(r.id)}>
@@ -97,14 +98,22 @@ function RoutineRow({ r }: { r: Routine }) {
 function NewRoutine({ onDone }: { onDone: () => void }) {
   const [title, setTitle] = useState('');
   const [start, setStart] = useState('12:00');
-  const [min, setMin] = useState(60);
+  const [end, setEnd] = useState(13 * 60);
   const [days, setDays] = useState([0, 1, 2, 3, 4, 5, 6]);
   return (
     <div className="card" style={{ border: '1px dashed var(--line)', padding: 10, gap: 8 }}>
       <input className="input" value={title} placeholder="例：仕事、夕食、風呂" onChange={(e) => setTitle(e.target.value)} />
       <div className="row">
-        <TimeSelect label="開始" value={start} onChange={setStart} />
-        <MinutesSelect value={min} onChange={setMin} />
+        <TimeSelect
+          label="開始"
+          value={start}
+          onChange={(v) => {
+            setStart(v);
+            if (end < toMin(v) + 30) setEnd(toMin(v) + 60);
+          }}
+        />
+        <span className="small muted">〜</span>
+        <EndSelect start={toMin(start)} value={end} onChange={setEnd} />
       </div>
       <DaysPicker days={days} onChange={setDays} />
       <div className="row">
@@ -113,7 +122,7 @@ function NewRoutine({ onDone }: { onDone: () => void }) {
           style={{ flex: 1 }}
           disabled={!title.trim() || days.length === 0}
           onClick={async () => {
-            await addRoutine({ title: title.trim(), start: toMin(start), min, days });
+            await addRoutine({ title: title.trim(), start: toMin(start), min: Math.max(30, end - toMin(start)), days });
             onDone();
           }}
         >
