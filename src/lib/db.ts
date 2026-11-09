@@ -6,6 +6,8 @@ import {
   type Draft,
   type Journal,
   type Leftover,
+  type ChangeNote,
+  type Measure,
   type Memo,
   type Meta,
   type Plan,
@@ -66,6 +68,10 @@ export class ShioriDB extends Dexie {
   starts!: Table<StartSession, string>;
   /** メモ箱（同期する） */
   memos!: Table<Memo, string>;
+  /** 変化メモ（同期する） */
+  changes!: Table<ChangeNote, string>;
+  /** 数値型の記録（同期する） */
+  measures!: Table<Measure, string>;
 
   constructor(name = 'shiori') {
     super(name);
@@ -84,6 +90,7 @@ export class ShioriDB extends Dexie {
     this.version(4).stores({ routines: 'id' });
     this.version(5).stores({ starts: 'id, lifeDate' });
     this.version(6).stores({ memos: 'id, createdAt' });
+    this.version(7).stores({ changes: 'id, trackId, lifeDate', measures: 'id, trackId, lifeDate' });
     installSyncMiddleware(this);
   }
 }

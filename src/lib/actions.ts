@@ -34,7 +34,7 @@ export interface NewStep {
 }
 
 export async function createTrack(
-  input: Pick<Track, 'name' | 'type' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue'> & { goal?: string },
+  input: Pick<Track, 'name' | 'type' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue'> & { goal?: string; unit?: string; target?: number },
   steps: NewStep[] = [],
   database: ShioriDB = db,
 ): Promise<Track> {
@@ -123,9 +123,18 @@ async function applyRevert(database: ShioriDB, item: PlanItem, to: 'planned' | '
   delete item.prevLastNote;
 }
 
-export async function markDone(lifeDate: string, itemId: string, note: string, database: ShioriDB = db) {
+export async function markDone(lifeDate: string, itemId: string, note: string, database: ShioriDB = db, feel?: 1 | 2 | 3) {
   const at = nowIso();
-  await withPlan(database, lifeDate, (_p, item) => applyDone(database, item, note, at), itemId);
+  await withPlan(
+    database,
+    lifeDate,
+    async (_p, item) => {
+      await applyDone(database, item, note, at);
+      if (feel) item.feel = feel;
+      else delete item.feel;
+    },
+    itemId,
+  );
 }
 
 /** 済を取り消して「予定」に戻す（直後の取り消し・長押し） */
@@ -245,7 +254,7 @@ export async function quickStart(today: string, c: Candidate, database: ShioriDB
 
 export async function updateTrack(
   id: string,
-  patch: Partial<Pick<Track, 'name' | 'goal' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue'>>,
+  patch: Partial<Pick<Track, 'name' | 'goal' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue' | 'unit' | 'target'>>,
   database: ShioriDB = db,
 ) {
   const t = await database.tracks.get(id);
@@ -307,9 +316,11 @@ export async function deleteLeftover(id: string, database: ShioriDB = db) {
  * ステップ・カレンダーに置いた予定（済も含む）・やり残しもまとめて消す。記録を残したいときは「終了」を使う
  */
 export async function deleteTrack(id: string, database: ShioriDB = db) {
-  await database.transaction('rw', [database.tracks, database.steps, database.plans, database.leftovers], async () => {
+  await database.transaction('rw', [database.tracks, database.steps, database.plans, database.leftovers, database.changes, database.measures], async () => {
     await database.tracks.delete(id);
     await database.steps.where('trackId').equals(id).delete();
+    await database.changes.where('trackId').equals(id).delete();
+    await database.measures.where('trackId').equals(id).delete();
     const leftovers = await database.leftovers.toArray();
     await database.leftovers.bulkDelete(leftovers.filter((l) => l.item.trackId === id).map((l) => l.id));
     const plans = await database.plans.toArray();

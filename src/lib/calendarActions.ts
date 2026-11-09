@@ -1,9 +1,10 @@
 import { afterPlanSaved, itemFromCandidate, lastWindow, type SavePlanResult } from './actions';
 import type { Candidate } from './candidates';
-import { MIN_LEN, withStarts } from './calendar';
+import { findGaps, fixedBlocksFor, MIN_LEN, withStarts } from './calendar';
 import { nowIso } from './clock';
 import { db, getMeta, updateMeta, type ShioriDB } from './db';
 import { newId } from './id';
+import { weekday } from './lifeDate';
 import type { Plan, PlanItem, Routine } from './types';
 
 // カレンダーでの操作（2026-11-08）。どれも端末内にすぐ保存する（同期は自動）
@@ -146,6 +147,52 @@ export async function toggleIntent(lifeDate: string, trackId: string, database: 
     },
     database,
   );
+}
+
+/**
+ * 「札のぶんを置く」（2026-11-09）：その日に札を付けた取り組みのうち、まだ置いていないものを空きに仮に置く。
+ * 平日は 18:00 以降、休日は 9:00 以降の空きから順に入れ、入らなければ表示の時間帯のどこかの空きに入れる。置けた数を返す
+ */
+export async function placeIntents(
+  lifeDate: string,
+  candidates: Candidate[],
+  routines: Routine[],
+  view: { start: number; end: number },
+  database: ShioriDB = db,
+): Promise<number> {
+  let placed = 0;
+  await database.transaction('rw', database.plans, database.leftovers, async () => {
+    const plan = await ensurePlan(database, lifeDate, 'night');
+    const intents = plan.intents ?? [];
+    const have = new Set(plan.items.map((i) => i.trackId));
+    const items = [...plan.items];
+    const holiday = plan.holiday || [0, 6].includes(weekday(lifeDate));
+    const prefer = (holiday ? 9 : 18) * 60;
+    for (const trackId of intents) {
+      if (have.has(trackId)) continue;
+      const c = candidates.find((x) => x.trackId === trackId);
+      if (!c) continue;
+      const len = Math.max(MIN_LEN, c.minutes);
+      const blocks = [...fixedBlocksFor(lifeDate, routines, { ...plan, items }), ...items.map((i) => ({ start: i.start ?? 0, min: i.minutes }))];
+      const gaps = findGaps(blocks, { minLen: len, from: view.start * 60, to: view.end * 60 });
+      // 好みの時刻以降に入る空き → なければ最初の空き
+      let start: number | null = null;
+      for (const g of gaps) {
+        const s = Math.max(g.start, prefer);
+        if (s + len <= g.start + g.len) {
+          start = s;
+          break;
+        }
+      }
+      if (start === null) start = gaps[0]?.start ?? null;
+      if (start === null) continue;
+      items.push({ ...itemFromCandidate(c), start, minutes: len });
+      have.add(trackId);
+      placed++;
+    }
+    if (placed) await database.plans.put({ ...plan, items });
+  });
+  return placed;
 }
 
 export async function moveExtraFixed(lifeDate: string, id: string, start: number, min: number, database: ShioriDB = db) {

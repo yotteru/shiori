@@ -24,8 +24,11 @@ export function StartSettings() {
         <a href="https://github.com/yotteru/shiori/blob/main/docs/SHORTCUTS.md" target="_blank" rel="noreferrer">
           手順書
         </a>
-        。集中モードは自動では切れないので、終わったら Apple Watch やコントロールセンターから切ってください。
+        。集中モードは自動では切れないので、終わったら Apple Watch やコントロールセンターから切ってください（毎日0時に切るオートメーションの作り方も手順書にあります）。
       </span>
+      <a className="btn" href="https://github.com/yotteru/shiori/blob/main/docs/SCREEN_TIME.md" target="_blank" rel="noreferrer">
+        誘惑を遠ざける設定（スクリーンタイム）の手順
+      </a>
 
       <span className="label" style={{ marginTop: 8 }}>
         「ここまで」の理由の候補
