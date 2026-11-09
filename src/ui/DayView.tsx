@@ -33,6 +33,7 @@ import { db, getMeta } from '../lib/db';
 import { shelveExpired } from '../lib/leftovers';
 import { cancelPush, pushPermission, schedulePush } from '../lib/push';
 import { activeSession } from '../lib/records';
+import { deadlineLabel } from '../lib/tracks';
 import { focusMinutes, focusShortcutUrl } from '../lib/shortcut';
 import { autoEndAt, autoEndSessions, DEFAULT_STOP_REASONS, discardSession, endSession, setSessionPush, startSession, stopSession } from '../lib/starts';
 import { addDays, jstTime, lifeDate, minutesIntoLifeDay, formatShortJa } from '../lib/lifeDate';
@@ -190,6 +191,12 @@ export function DayView() {
   const fixed = fixedBlocksFor(date, data.routines, plan);
   const removedFixed = removedFixedFor(date, data.routines, plan);
   const trackById = new Map(data.tracks.map((t) => [t.id, t]));
+  // 同じ行き先を2回以上置いた日は、予定に「1/2」のように何回目かを出す
+  const nthLabel = (i: PlanItem): string | undefined => {
+    const k = candidateKey(i.trackId, i.stepId);
+    const same = items.filter((x) => candidateKey(x.trackId, x.stepId) === k);
+    return same.length >= 2 ? `${same.findIndex((x) => x.id === i.id) + 1}/${same.length}` : undefined;
+  };
 
   const blocks: CalBlock[] = [
     ...fixed.map((f) => ({ id: f.id, title: f.title, start: f.start, min: f.min, tone: 'fixed' as const })),
@@ -201,6 +208,7 @@ export function DayView() {
       tone: (trackById.get(i.trackId)?.type === 'habit' ? 'habit' : 'project') as CalBlock['tone'],
       status: i.status,
       isNext: next?.id === i.id,
+      nth: nthLabel(i),
       first: i.firstStep,
       cue: i.cue,
     })),
@@ -214,7 +222,12 @@ export function DayView() {
   // 週の見通しで、この日に札を付けた取り組みを先頭に（2026-11-09）
   const intents = plan?.intents ?? [];
   const cands = [...ordered.filter((c) => intents.includes(c.trackId)), ...ordered.filter((c) => !intents.includes(c.trackId))];
-  const placedKeys = new Set(items.map((i) => candidateKey(i.trackId, i.stepId)));
+  // 同じ行き先（プロジェクト型のステップも）を1日に何回でも置ける。何回置いたかを札と予定に出す（2026-11-10）
+  const placedCount = new Map<string, number>();
+  for (const i of items) {
+    const k = candidateKey(i.trackId, i.stepId);
+    placedCount.set(k, (placedCount.get(k) ?? 0) + 1);
+  }
   const heldCand = cands.find((c) => c.key === held);
 
   const weekly = weeklyDoneMinutes(data.plans, today, data.starts);
@@ -466,14 +479,14 @@ export function DayView() {
             <div className="row-scroll tray">
                 {cands.length === 0 && <span className="small muted">候補がありません。「取り組み」から追加できます。</span>}
                 {cands.map((c) => {
-                  const placed = placedKeys.has(c.key) && c.trackType === 'project';
+                  const placedN = placedCount.get(c.key) ?? 0;
+                  const due = deadlineLabel({ type: c.trackType, deadline: trackById.get(c.trackId)?.deadline }, today);
                   const fit = gap ? Math.max(30, c.minutes) <= gap.len : null;
-                  const cls = ['tray-cand', held === c.key ? 'held' : '', placed ? 'placed' : '', fit === true ? 'fit' : fit === false ? 'nofit' : ''].join(' ');
+                  const cls = ['tray-cand', held === c.key ? 'held' : '', fit === true ? 'fit' : fit === false ? 'nofit' : ''].join(' ');
                   return (
                     <button
                       key={c.key}
                       className={cls}
-                      disabled={placed}
                       onClick={() => {
                         if (gap) {
                           if (fit) void place(c, gap.start);
@@ -486,6 +499,12 @@ export function DayView() {
                       <small>
                         {intents.includes(c.trackId) && <b className="tag-mark">札</b>}
                         {c.kind === 'leftover' ? 'やり残し' : c.trackName}・{Math.max(30, c.minutes)}分
+                        {due && <span className="due">・{due}</span>}
+                        {placedN > 0 && (
+                          <b className="cnt">
+                            {day === 'today' ? '今日' : '明日'} {placedN}回
+                          </b>
+                        )}
                       </small>
                       <span>{c.title}</span>
                     </button>

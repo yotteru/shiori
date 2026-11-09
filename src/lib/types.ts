@@ -19,6 +19,8 @@ export interface Track {
   defaultFirstStep?: string;
   /** 習慣型の既定値：きっかけ（例：帰宅して靴を脱いだら） */
   defaultCue?: string;
+  /** プロジェクト型の期日 'YYYY-MM-DD'（任意。「あと○日」を淡く出すだけ。過ぎても責めない。2026-11-10） */
+  deadline?: string;
   /** なりたい状態（どうなったら「できた」か。メモ箱から整えたときなど。空欄可） */
   goal?: string;
   /** 前回の続き（済をつけたときの「次はここから」） */

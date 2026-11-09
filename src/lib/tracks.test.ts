@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { daysSinceTouched, isStalled, recentHabitDays } from './tracks';
+import { daysSinceTouched, deadlineLabel, isStalled, recentHabitDays } from './tracks';
 import type { Track } from './types';
 
 const t: Track = { id: 'h', name: 'x', type: 'habit', createdAt: '2026-10-20T03:00:00Z' };
@@ -22,5 +22,15 @@ describe('止まっている取り組み', () => {
       { date: '2026-11-03', done: true },
       { date: '2026-11-04', done: false },
     ]);
+  });
+});
+
+describe('期日（2026-11-10）', () => {
+  it('プロジェクト型だけ「あと○日」。当日は「今日まで」、過ぎたら出さない', () => {
+    expect(deadlineLabel({ type: 'project', deadline: '2026-11-22' }, '2026-11-10')).toBe('あと12日');
+    expect(deadlineLabel({ type: 'project', deadline: '2026-11-10' }, '2026-11-10')).toBe('今日まで');
+    expect(deadlineLabel({ type: 'project', deadline: '2026-11-09' }, '2026-11-10')).toBeUndefined();
+    expect(deadlineLabel({ type: 'habit', deadline: '2026-11-22' }, '2026-11-10')).toBeUndefined();
+    expect(deadlineLabel({ type: 'project' }, '2026-11-10')).toBeUndefined();
   });
 });

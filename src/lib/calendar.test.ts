@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findGaps, fixedBlocksFor, formatDuration, itemsByStart, layoutColumns, nextItem, placeStart, removedFixedFor, weeklyDoneMinutes, withStarts } from './calendar';
+import { findGaps, fixedDepths, fixedBlocksFor, formatDuration, itemsByStart, layoutColumns, nextItem, placeStart, removedFixedFor, weeklyDoneMinutes, withStarts } from './calendar';
 import type { Plan, PlanItem, Routine } from './types';
 
 const item = (id: string, minutes: number, extra: Partial<PlanItem> = {}): PlanItem => ({
@@ -97,5 +97,17 @@ describe('removedFixedFor', () => {
     const p = plan('2026-11-09', [], { fixedEdits: { dinner: 'removed' } });
     expect(removedFixedFor('2026-11-09', routines, p).map((r) => r.title)).toEqual(['夕食']);
     expect(fixedBlocksFor('2026-11-09', routines, p).map((b) => b.title)).toEqual(['仕事']);
+  });
+});
+
+describe('fixedDepths（固定の重なり。2026-11-10）', () => {
+  it('後から始まって重なる固定ほど深くなる。重ならなければ0', () => {
+    const d = fixedDepths([
+      { id: 'work', start: 540, min: 540 },
+      { id: 'dentist', start: 720, min: 60 },
+      { id: 'call', start: 735, min: 30 },
+      { id: 'dinner', start: 1140, min: 30 },
+    ]);
+    expect(d).toEqual({ work: 0, dentist: 1, call: 2, dinner: 0 });
   });
 });

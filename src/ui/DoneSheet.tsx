@@ -11,9 +11,11 @@ export function DoneSheet({ item, lifeDate, habit, onClose, onDone }: { item: Pl
   const [note, setNote, clearDraft] = useDraft(`next-note:${lifeDate}:${item.id}`);
   const [busy, setBusy] = useState(false);
   const [feel, setFeel] = useState<1 | 2 | 3 | undefined>(undefined);
+  // 済は「今回の分」。ステップを終えるのは、自分で決めたときだけ（2026-11-10）
+  const [completeStep, setCompleteStep] = useState(false);
   const submit = async () => {
     setBusy(true);
-    await markDone(lifeDate, item.id, note, undefined, feel);
+    await markDone(lifeDate, item.id, note, undefined, feel, completeStep);
     await clearDraft();
     onDone();
   };
@@ -34,6 +36,15 @@ export function DoneSheet({ item, lifeDate, habit, onClose, onDone }: { item: Pl
           onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
         />
       </label>
+      {item.stepId && (
+        <label className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
+          <input type="checkbox" style={{ marginTop: 4 }} checked={completeStep} onChange={(e) => setCompleteStep(e.target.checked)} />
+          <span className="stack" style={{ gap: 2 }}>
+            <span>このステップは完了</span>
+            <span className="small muted">オフのままなら、次も同じステップが候補に出ます</span>
+          </span>
+        </label>
+      )}
       {habit && (
         <div className="field">
           <span>手応え（選ばなくても大丈夫）</span>

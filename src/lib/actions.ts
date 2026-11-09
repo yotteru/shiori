@@ -82,7 +82,11 @@ async function withPlan(
   });
 }
 
-async function applyDone(database: ShioriDB, item: PlanItem, note: string, at: string) {
+/**
+ * 済をつける。済は「今回の分をやった」だけで、ステップは completeStep のときだけ完了にする
+ * （ステップは完了するまで何回もやる単位。2026-11-10）
+ */
+async function applyDone(database: ShioriDB, item: PlanItem, note: string, at: string, completeStep = false) {
   const track = await database.tracks.get(item.trackId);
   const text = note.trim();
   item.status = 'done';
@@ -91,7 +95,7 @@ async function applyDone(database: ShioriDB, item: PlanItem, note: string, at: s
   if (text) item.nextNote = text;
   else delete item.nextNote;
   if (track && text) await database.tracks.put({ ...track, lastNote: { text, at } });
-  if (item.stepId) {
+  if (item.stepId && completeStep) {
     const step = await database.steps.get(item.stepId);
     if (step) await database.steps.put({ ...step, status: 'done', doneAt: at });
   }
@@ -123,13 +127,13 @@ async function applyRevert(database: ShioriDB, item: PlanItem, to: 'planned' | '
   delete item.prevLastNote;
 }
 
-export async function markDone(lifeDate: string, itemId: string, note: string, database: ShioriDB = db, feel?: 1 | 2 | 3) {
+export async function markDone(lifeDate: string, itemId: string, note: string, database: ShioriDB = db, feel?: 1 | 2 | 3, completeStep = false) {
   const at = nowIso();
   await withPlan(
     database,
     lifeDate,
     async (_p, item) => {
-      await applyDone(database, item, note, at);
+      await applyDone(database, item, note, at, completeStep);
       if (feel) item.feel = feel;
       else delete item.feel;
     },
@@ -254,7 +258,7 @@ export async function quickStart(today: string, c: Candidate, database: ShioriDB
 
 export async function updateTrack(
   id: string,
-  patch: Partial<Pick<Track, 'name' | 'goal' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue' | 'unit' | 'target'>>,
+  patch: Partial<Pick<Track, 'name' | 'goal' | 'defaultMinutes' | 'defaultFirstStep' | 'defaultCue' | 'unit' | 'target' | 'deadline'>>,
   database: ShioriDB = db,
 ) {
   const t = await database.tracks.get(id);
@@ -281,6 +285,18 @@ export async function addStep(trackId: string, s: NewStep, database: ShioriDB = 
 export async function updateStep(id: string, patch: Partial<NewStep>, database: ShioriDB = db) {
   const s = await database.steps.get(id);
   if (s) await database.steps.put({ ...s, ...patch });
+}
+
+/** ステップを完了にする・戻す（取り組みタブから。済だけではステップは完了しない。2026-11-10） */
+export async function setStepDone(id: string, done: boolean, database: ShioriDB = db) {
+  const s = await database.steps.get(id);
+  if (!s) return;
+  if (done) await database.steps.put({ ...s, status: 'done', doneAt: nowIso() });
+  else {
+    const { doneAt: _d, ...rest } = s;
+    void _d;
+    await database.steps.put({ ...rest, status: 'todo' });
+  }
 }
 
 export async function deleteStep(id: string, database: ShioriDB = db) {
