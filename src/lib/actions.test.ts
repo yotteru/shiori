@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { finalizeReview, markDone, quickStart, revertDone, savePlan } from './actions';
+import { finalizeReview, markDone, quickStart, revertDone, savePlan, setStepDone } from './actions';
 import { buildCandidates } from './candidates';
 import { setDebugNow } from './clock';
 import { getMeta, ShioriDB } from './db';
@@ -32,11 +32,20 @@ async function seed(d: ShioriDB) {
 }
 
 describe('済をつける・取り消す（§3.3、手動テスト 11 の自動版）', () => {
-  it('次はここからを書くと前回の続きになり、次の候補はステップ2になる。取り消すと元に戻る', async () => {
+  it('済だけではステップは完了せず、次の候補も同じステップ（前回の続きつき）', async () => {
+    const d = fresh();
+    await seed(d);
+    await markDone('2026-11-04', 'i1', '壁跨ぎの判定から', d);
+    expect((await d.steps.get('s1'))?.status).toBe('todo');
+    const cands = buildCandidates({ today: '2026-11-04', tracks: await d.tracks.toArray(), steps: await d.steps.toArray(), leftovers: [] });
+    expect(cands.find((c) => c.trackId === 'p')).toMatchObject({ stepId: 's1', firstStep: '壁跨ぎの判定から' });
+  });
+
+  it('「このステップは完了」で済をつけると、次の候補はステップ2になる。取り消すと元に戻る', async () => {
     const d = fresh();
     await seed(d);
     setDebugNow('2026-11-04T20:00:00+09:00');
-    await markDone('2026-11-04', 'i1', '  壁跨ぎの判定から  ', d);
+    await markDone('2026-11-04', 'i1', '  壁跨ぎの判定から  ', d, undefined, true);
     expect((await d.tracks.get('p'))?.lastNote?.text).toBe('壁跨ぎの判定から');
     expect((await d.steps.get('s1'))?.status).toBe('done');
     const plan = await d.plans.get('2026-11-04');
@@ -49,6 +58,17 @@ describe('済をつける・取り消す（§3.3、手動テスト 11 の自動�
     expect((await d.tracks.get('p'))?.lastNote?.text).toBe('古いメモ');
     expect((await d.steps.get('s1'))?.status).toBe('todo');
     expect((await d.plans.get('2026-11-04'))?.items[0].status).toBe('planned');
+  });
+
+  it('取り組みタブからステップを完了にし、取り消せる', async () => {
+    const d = fresh();
+    await seed(d);
+    await setStepDone('s1', true, d);
+    expect((await d.steps.get('s1'))?.status).toBe('done');
+    await setStepDone('s1', false, d);
+    const s1 = await d.steps.get('s1');
+    expect(s1?.status).toBe('todo');
+    expect(s1?.doneAt).toBeUndefined();
   });
 
   it('空欄の済は前回の続きを変えない', async () => {
@@ -65,7 +85,8 @@ describe('夜の流れ', () => {
     await seed(d);
     await finalizeReview('2026-11-04', { i1: 'done', i2: 'undone' }, d);
     expect((await d.leftovers.toArray()).map((l) => [l.id, l.fromLifeDate])).toEqual([['i2', '2026-11-04']]);
-    expect((await d.steps.get('s1'))?.status).toBe('done');
+    // 答え合わせの済は「今回の分」だけ。ステップは完了しない（2026-11-10）
+    expect((await d.steps.get('s1'))?.status).toBe('todo');
     await finalizeReview('2026-11-04', { i1: 'undone', i2: 'done' }, d);
     expect((await d.leftovers.toArray()).map((l) => l.id)).toEqual(['i1']);
     expect((await d.steps.get('s1'))?.status).toBe('todo');

@@ -103,6 +103,18 @@ export function removedFixedFor(lifeDate: string, routines: Routine[], plan?: Pl
     .sort((a, b) => a.start - b.start);
 }
 
+/** 固定どうしの重なりの深さ：始まりの早い順に並べ、まだ終わっていない前の固定の数（最大2） */
+export function fixedDepths(fixed: { id: string; start: number; min: number }[]): Record<string, number> {
+  const sorted = fixed.slice().sort((a, b) => a.start - b.start || b.min - a.min);
+  const out: Record<string, number> = {};
+  sorted.forEach((b, i) => {
+    let d = 0;
+    for (const o of sorted.slice(0, i)) if (o.start + o.min > b.start) d = Math.max(d, (out[o.id] ?? 0) + 1);
+    out[b.id] = Math.min(d, 2);
+  });
+  return out;
+}
+
 /** 重なった予定を横に並べる：各予定の列番号と、その予定と重なる範囲の列数 */
 export function layoutColumns<T extends { id: string; start: number; min: number }>(blocks: T[]): Record<string, { col: number; cols: number }> {
   const sorted = blocks.slice().sort((a, b) => a.start - b.start || b.min - a.min);

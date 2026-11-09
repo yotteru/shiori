@@ -101,6 +101,13 @@ export function WeekBody({
                     {[...allDay.map((x) => `${x.title} 終日`), ...fixed.map((f) => `${f.title} ${formatMinute(f.start)}–${formatMinute(f.start + f.min)}`)].join('・') || (hol ? '決まった予定なし' : '')}
                   </span>
                   <span className="chips">
+                    {tracks
+                      .filter((t) => t.type === 'project' && t.deadline === d)
+                      .map((t) => (
+                        <span key={`dl-${t.id}`} className="chip dl">
+                          ◆ {t.name}の期日
+                        </span>
+                      ))}
                     {(p?.intents ?? []).length ? (
                       (p?.intents ?? []).map((id) => {
                         const t = trackById.get(id);
@@ -146,6 +153,7 @@ function WeekCalendar({
   onOpen: (d: string) => void;
 }) {
   const H = (view.end - view.start) * PX_PER_HOUR;
+  const deadlinesOn = (d: string) => [...trackById.values()].filter((t) => t.type === 'project' && t.deadline === d);
   const y = (min: number) => ((min - view.start * 60) / 60) * PX_PER_HOUR;
   const ticks: number[] = [];
   for (let h = view.start; h <= view.end; h += 3) ticks.push(h);
@@ -161,6 +169,11 @@ function WeekCalendar({
               <b>{dayNum(d)}</b>
               <span className={hol ? 'hol' : ''}>{WD[i]}</span>
               <span className="wc-tags">
+                {deadlinesOn(d).map((t) => (
+                  <i key={`dl-${t.id}`} className="dl">
+                    ◆{t.name}
+                  </i>
+                ))}
                 {(p?.intents ?? []).map((id) => {
                   const t = trackById.get(id);
                   return t ? (
