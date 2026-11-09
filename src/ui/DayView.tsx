@@ -54,6 +54,7 @@ type Day = 'today' | 'tomorrow' | 'week';
 const DAY_ORDER: Day[] = ['today', 'tomorrow', 'week'];
 type SheetKind = null | 'fixed' | 'reflect' | 'first' | 'confirmed' | 'quick' | 'stop' | 'memo' | 'measure';
 const TAB_H = 56;
+const toMin = (hm: string) => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
 
 export function DayView() {
   const now = useNow();
@@ -90,6 +91,7 @@ export function DayView() {
   const [weekOffset, setWeekOffset] = useState(() => defaultWeekOffset(today, Number(jstTime(now).slice(0, 2))));
   const [weekMode, setWeekModeState] = useState<'cal' | 'list'>(loadWeekMode);
   const [weekOpen, setWeekOpen] = useState<string | null>(null);
+  const [addFixedAt, setAddFixedAt] = useState<number | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
 
@@ -349,6 +351,10 @@ export function DayView() {
           setSel(null);
         }}
         onCommit={(id, s, m) => void commit(id, s, m)}
+        onFixedTap={(m) => {
+          setGap(null);
+          setAddFixedAt(m);
+        }}
         topInset={() => topRef.current?.getBoundingClientRect().bottom ?? 0}
         bottomInset={bottomInset}
       />
@@ -554,6 +560,18 @@ export function DayView() {
       </button>)}
 
       {weekOpen && <DaySheet date={weekOpen} plan={data.plans.find((p) => p.lifeDate === weekOpen)} routines={data.routines} tracks={activeTracks} onClose={() => setWeekOpen(null)} />}
+      {addFixedAt !== null && (
+        <AddFixedSheet
+          date={date}
+          start={addFixedAt}
+          onAdd={async (title, start, min) => {
+            await addExtraFixed(date, title, start, min, source);
+            setAddFixedAt(null);
+            setToast({ message: `「${title}」をこの日だけの予定に足しました` });
+          }}
+          onClose={() => setAddFixedAt(null)}
+        />
+      )}
       {sheet === 'fixed' && <FixedSheet date={date} plan={plan} routines={data.routines} source={source} onClose={() => setSheet(null)} />}
       {sheet === 'reflect' && (
         <Sheet onClose={() => setSheet(null)} label="今日の振り返り">
@@ -729,7 +747,6 @@ function FixedSheet({
   const [title, setTitle] = useState('');
   const [start, setStart] = useState('10:00');
   const [end, setEnd] = useState(11 * 60);
-  const toMin = (hm: string) => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
   return (
     <Sheet onClose={onClose} label="この日の固定">
       <span style={{ fontSize: 16, fontWeight: 700 }}>{formatLifeDateJa(date)}の固定</span>
@@ -833,6 +850,39 @@ function QuickLink({
         </button>
       )}
     </div>
+  );
+}
+
+/** 左の固定の列をタップしたとき：その時刻で「この日だけの予定」を足す（2026-11-09） */
+function AddFixedSheet({ date, start, onAdd, onClose }: { date: string; start: number; onAdd: (title: string, start: number, min: number) => void; onClose: () => void }) {
+  const [title, setTitle] = useState('');
+  const [s, setS] = useState(formatMinute(start));
+  const [end, setEnd] = useState(start + 60);
+  const sm = toMin(s);
+  return (
+    <Sheet onClose={onClose} label="この日だけの予定を足す">
+      <span style={{ fontSize: 18, fontWeight: 700 }}>{formatShortJa(date)} の予定を足す</span>
+      <span className="sub">歯医者・飲み会など、この日だけの決まった予定。左の固定の列に置かれます。</span>
+      <input className="input" value={title} placeholder="例：歯医者" aria-label="予定の名前" onChange={(e) => setTitle(e.target.value)} />
+      <div className="row">
+        <TimeSelect
+          label="開始"
+          value={s}
+          onChange={(v) => {
+            setS(v);
+            if (end < toMin(v) + 30) setEnd(toMin(v) + 60);
+          }}
+        />
+        <span className="small muted">〜</span>
+        <EndSelect start={sm} value={end} onChange={setEnd} />
+      </div>
+      <button className="btn-primary" disabled={!title.trim()} onClick={() => onAdd(title.trim(), sm, Math.max(30, end - sm))}>
+        足す
+      </button>
+      <button className="btn-ghost" onClick={onClose}>
+        やめる
+      </button>
+    </Sheet>
   );
 }
 
