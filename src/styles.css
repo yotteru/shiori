@@ -315,3 +315,4 @@ button.cell { padding: 0; background-color: transparent; cursor: pointer; }
 /* 昨日の答え合わせが残っている印（2026-11-09。見出しから振り返りへ移した） */
 .has-dot { position: relative; }
 .has-dot::after { content: ''; position: absolute; top: 6px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--next); }
+.cal-title h1 { font-variant-numeric: tabular-nums; }

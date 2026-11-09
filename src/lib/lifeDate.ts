@@ -73,6 +73,11 @@ export function weekStartMonday(date: string): string {
 }
 
 /** 表示用：'11月4日（水）' */
+/** 見出し用の短い日付（2026-11-09）：桁をそろえて「11/09（月）」。切り替えても幅が変わらないように */
+export function formatShortJa(date: string): string {
+  return `${date.slice(5, 7)}/${date.slice(8, 10)}（${'日月火水木金土'[weekday(date)]}）`;
+}
+
 export function formatLifeDateJa(date: string): string {
   const [, m, d] = date.split('-').map(Number);
   const w = '日月火水木金土'[weekday(date)];

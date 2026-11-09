@@ -35,7 +35,7 @@ import { cancelPush, pushPermission, schedulePush } from '../lib/push';
 import { activeSession } from '../lib/records';
 import { focusMinutes, focusShortcutUrl } from '../lib/shortcut';
 import { DEFAULT_STOP_REASONS, discardSession, endSession, setSessionPush, startSession, stopSession } from '../lib/starts';
-import { addDays, formatLifeDateJa, jstTime, lifeDate, minutesIntoLifeDay, weekday } from '../lib/lifeDate';
+import { addDays, formatLifeDateJa, jstTime, lifeDate, minutesIntoLifeDay, weekday, formatShortJa } from '../lib/lifeDate';
 import type { Plan, PlanItem, StartSession } from '../lib/types';
 import { NightFinishedExtras } from './Backup';
 import { Calendar, PX_PER_MIN, type CalBlock } from './Calendar';
@@ -292,7 +292,7 @@ export function DayView() {
       <div ref={topRef} className="cal-top">
         <div className="cal-title">
           <h1>
-            {day === 'week' ? `${weekTitle(weekDates_)} ${weekLabel(weekOffset)}` : `${formatLifeDateJa(date)} ${day === 'today' ? '今日' : '明日'}`}
+            {day === 'week' ? `${weekTitle(weekDates_)} ${weekLabel(weekOffset)}` : `${formatShortJa(date)} ${day === 'today' ? '今日' : '明日'}`}
           </h1>
           <div className="row-scroll" style={{ minWidth: 0 }}>
             {activeTracks.map((t) => (
