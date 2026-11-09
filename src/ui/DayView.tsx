@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLive, useNow } from '../hooks';
 import { revertDone, type SavePlanResult } from '../lib/actions';
 import {
@@ -45,11 +45,13 @@ import { MemoInput } from './MemoBox';
 import { MeasureSheet } from './MeasureSheet';
 import { JournalCard, ReviewCard } from './Reflection';
 import { WeekView } from './WeekView';
+import { useSwipe } from './useSwipe';
 import { allDayEvents } from '../lib/week';
 
 // しおりタブ（2026-11-08 カレンダー版）。「今日」「明日」をいつでも切り替えて、縦のカレンダーで組む
 
 type Day = 'today' | 'tomorrow' | 'week';
+const DAY_ORDER: Day[] = ['today', 'tomorrow', 'week'];
 type SheetKind = null | 'fixed' | 'reflect' | 'yesterday' | 'first' | 'confirmed' | 'quick' | 'stop' | 'memo' | 'measure';
 const TAB_H = 56;
 
@@ -84,6 +86,8 @@ export function DayView() {
   const [toast, setToast] = useState<{ message: string; undoId?: string } | null>(null);
   const [confirmed, setConfirmed] = useState<SavePlanResult | null>(null);
   const [topH, setTopH] = useState(0);
+  const [dockH, setDockH] = useState(140);
+  const [swipeEl, setSwipeEl] = useState<HTMLDivElement | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
 
@@ -98,8 +102,9 @@ export function DayView() {
   // 見出しは画面の上に重ねて固定。その高さぶん、ページの上を空けておく
   useLayoutEffect(() => {
     const el = topRef.current;
-    if (!el) return;
-    setTopH(el.offsetHeight);
+    if (el && el.offsetHeight !== topH) setTopH(el.offsetHeight);
+    const d = dockRef.current;
+    if (d && d.offsetHeight !== dockH) setDockH(d.offsetHeight);
   });
 
 
@@ -124,8 +129,24 @@ export function DayView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day, loaded]);
 
+  // 横スライドで 今日 ⇄ 明日 ⇄ 週（2026-11-09）
+  const dayIdx = DAY_ORDER.indexOf(day);
+  const switchDay = useCallback(
+    (dir: 'left' | 'right') => {
+      const n = DAY_ORDER[dayIdx + (dir === 'left' ? 1 : -1)];
+      if (!n) return;
+      setDay(n);
+      setSel(null);
+      setHeld(null);
+      setGap(null);
+      window.scrollTo(0, 0);
+    },
+    [dayIdx],
+  );
+  useSwipe(swipeEl, { enabled: !sel, canLeft: dayIdx < 2, canRight: dayIdx > 0, onSwipe: switchDay });
+
   const segEl = (
-    <div className="seg" role="tablist" aria-label="今日・明日・週" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+    <div className="seg seg-thin" role="tablist" aria-label="今日・明日・週" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
       {(['today', 'tomorrow', 'week'] as const).map((d) => (
         <button
           key={d}
@@ -146,7 +167,7 @@ export function DayView() {
   );
 
   if (!data) return null;
-  if (day === 'week') return <WeekView today={today} hourJst={Number(jstTime(now).slice(0, 2))} header={segEl} />;
+  if (day === 'week') return <WeekView today={today} hourJst={Number(jstTime(now).slice(0, 2))} footer={segEl} swipeRef={setSwipeEl} />;
 
   const plan = data.plan;
   const items = plan ? itemsByStart(plan) : [];
@@ -258,40 +279,17 @@ export function DayView() {
   return (
     <>
       <div ref={topRef} className="cal-top">
-        {segEl}
         <div className="cal-title">
           <h1>
             {formatLifeDateJa(date)}
             {day === 'today' ? ' 今日' : ' 明日'}
           </h1>
-          <div className="cal-chips">
+          <div className="row-scroll" style={{ minWidth: 0 }}>
             {day === 'today' && pendingYesterday && (
-              <button className="chip-btn accent" onClick={() => setSheet('yesterday')}>
+              <button className="chip-btn accent" style={{ flex: 'none' }} onClick={() => setSheet('yesterday')}>
                 昨日の答え合わせ
               </button>
             )}
-            {day === 'today' ? (
-              <>
-                <button className="chip-btn accent" onClick={() => scrollToMinute(nowMin - 60, true)}>
-                  いま
-                </button>
-                <button className="chip-btn" onClick={() => setSheet('reflect')}>
-                  振り返り
-                </button>
-              </>
-            ) : (
-              <button className="chip-btn" onClick={() => scrollToMinute(view.focus * 60, true)}>
-                {view.focus}時へ
-              </button>
-            )}
-          </div>
-        </div>
-        {/* 見出し（今週の合計・候補・案内）はスクロールしても畳まず、常に表示する（2026-11-08） */}
-        <div className="cal-collapse">
-          <div className="row-scroll">
-            <span className="week-chip muted" style={{ paddingLeft: 0 }}>
-              今週
-            </span>
             {activeTracks.map((t) => (
               <span key={t.id} className="week-chip" style={{ background: t.type === 'habit' ? '#e3f2f0' : '#fdebdf' }}>
                 <b>{t.name}</b> <span className="mono">{formatDuration(weekly[t.id] ?? 0)}</span>
@@ -299,41 +297,11 @@ export function DayView() {
             ))}
           </div>
         </div>
-        <div className="row-scroll">
-            {cands.length === 0 && <span className="small muted">候補がありません。「取り組み」から追加できます。</span>}
-            {cands.map((c) => {
-              const placed = placedKeys.has(c.key) && c.trackType === 'project';
-              const fit = gap ? Math.max(30, c.minutes) <= gap.len : null;
-              const cls = ['tray-cand', held === c.key ? 'held' : '', placed ? 'placed' : '', fit === true ? 'fit' : fit === false ? 'nofit' : ''].join(' ');
-              return (
-                <button
-                  key={c.key}
-                  className={cls}
-                  disabled={placed}
-                  onClick={() => {
-                    if (gap) {
-                      if (fit) void place(c, gap.start);
-                      return;
-                    }
-                    setHeld(held === c.key ? null : c.key);
-                    setSel(null);
-                  }}
-                >
-                  <small>
-                    {intents.includes(c.trackId) && <b className="tag-mark">札</b>}
-                    {c.kind === 'leftover' ? 'やり残し' : c.trackName}・{Math.max(30, c.minutes)}分
-                  </small>
-                  <span>{c.title}</span>
-                </button>
-              );
-            })}
-        </div>
         {allDayEvents(plan).length > 0 && (
           <div className="small" style={{ fontWeight: 700 }}>
             終日：{allDayEvents(plan).map((x) => x.title).join('・')}
           </div>
         )}
-        <div className={`cal-hint${gap || heldCand ? ' on' : ''}`}>{hint}</div>
         <div className="cal-lanes">
           <button onClick={() => setSheet('fixed')}>固定 ▾</button>
           <span>取り組み</span>
@@ -342,6 +310,7 @@ export function DayView() {
       {/* .screen の上の余白（20px＋安全領域）と間隔（16px）を差し引いて、見出しの下から始まるようにする */}
       <div style={{ height: `max(0px, calc(${topH}px - 36px - env(safe-area-inset-top)))`, marginTop: -16 }} aria-hidden="true" />
 
+      <div ref={setSwipeEl} style={{ touchAction: 'pan-y' }}>
       <Calendar
         view={view}
         blocks={blocks}
@@ -364,9 +333,10 @@ export function DayView() {
         topInset={() => topRef.current?.getBoundingClientRect().bottom ?? 0}
         bottomInset={bottomInset}
       />
-      <div style={{ height: 120 }} aria-hidden="true" />
+      </div>
+      <div style={{ height: dockH + 24 }} aria-hidden="true" />
 
-      <nav className="cal-index" aria-label="時刻へ移動">
+      <nav className="cal-index" aria-label="時刻へ移動" style={{ top: topH + 8, transform: "none" }}>
         {Array.from({ length: Math.ceil((view.end - view.start) / 2) }, (_, k) => view.start + k * 2).map((h) => (
           <button key={h} onClick={() => scrollToMinute(h * 60, true)}>
             {h >= 24 ? h - 24 : h}
@@ -417,7 +387,39 @@ export function DayView() {
               )}
             </div>
           </div>
-        ) : day === 'today' ? (
+        ) : (
+          <>
+            {(gap || heldCand) && <div className="cal-hint on">{hint}</div>}
+            <div className="row-scroll tray">
+                {cands.length === 0 && <span className="small muted">候補がありません。「取り組み」から追加できます。</span>}
+                {cands.map((c) => {
+                  const placed = placedKeys.has(c.key) && c.trackType === 'project';
+                  const fit = gap ? Math.max(30, c.minutes) <= gap.len : null;
+                  const cls = ['tray-cand', held === c.key ? 'held' : '', placed ? 'placed' : '', fit === true ? 'fit' : fit === false ? 'nofit' : ''].join(' ');
+                  return (
+                    <button
+                      key={c.key}
+                      className={cls}
+                      disabled={placed}
+                      onClick={() => {
+                        if (gap) {
+                          if (fit) void place(c, gap.start);
+                          return;
+                        }
+                        setHeld(held === c.key ? null : c.key);
+                        setSel(null);
+                      }}
+                    >
+                      <small>
+                        {intents.includes(c.trackId) && <b className="tag-mark">札</b>}
+                        {c.kind === 'leftover' ? 'やり残し' : c.trackName}・{Math.max(30, c.minutes)}分
+                      </small>
+                      <span>{c.title}</span>
+                    </button>
+                  );
+                })}
+            </div>
+            {day === 'today' ? (
           active ? (
             <div className="stack" style={{ gap: 4 }}>
               <span className="small" style={{ textAlign: 'center' }}>
@@ -457,17 +459,9 @@ export function DayView() {
                   済をつける
                 </button>
               </div>
-              <QuickLink onQuick={() => setSheet('quick')} onMemo={() => setSheet('memo')} onMeasure={hasNumber ? () => setSheet('measure') : undefined} />
             </div>
-          ) : (
-            <div className="stack" style={{ gap: 4 }}>
-              <button className="btn" onClick={() => setSheet('reflect')}>
-                今日の振り返り（答え合わせ・ジャーナル）
-              </button>
-              <QuickLink onQuick={() => setSheet('quick')} onMemo={() => setSheet('memo')} onMeasure={hasNumber ? () => setSheet('measure') : undefined} />
-            </div>
-          )
-        ) : (
+          ) : null
+            ) : (
           <div className="stack" style={{ gap: 6 }}>
           {unplacedIntents > 0 && (
             <button
@@ -491,8 +485,24 @@ export function DayView() {
             この計画で明日を迎える
           </button>
           </div>
+            )}
+            <QuickLink
+              onQuick={() => setSheet('quick')}
+              onMemo={() => setSheet('memo')}
+              onMeasure={hasNumber ? () => setSheet('measure') : undefined}
+              onReflect={day === 'today' ? () => setSheet('reflect') : undefined}
+            />
+          </>
         )}
+        {segEl}
       </div>
+      <button
+        className="cal-fab"
+        style={{ bottom: `calc(${dockH + 56 + 12}px + env(safe-area-inset-bottom))` }}
+        onClick={() => scrollToMinute(nowOnDay !== undefined ? nowOnDay - 60 : view.focus * 60, true)}
+      >
+        {nowOnDay !== undefined ? 'いま' : `${view.focus}時`}
+      </button>
 
       {sheet === 'fixed' && <FixedSheet date={date} plan={plan} routines={data.routines} source={source} onClose={() => setSheet(null)} />}
       {sheet === 'reflect' && (
@@ -752,20 +762,14 @@ function FixedSheet({
   );
 }
 
-function QuickLink({ onQuick, onMemo, onMeasure }: { onQuick: () => void; onMemo: () => void; onMeasure?: () => void }) {
+function QuickLink({ onQuick, onMemo, onMeasure, onReflect }: { onQuick: () => void; onMemo: () => void; onMeasure?: () => void; onReflect?: () => void }) {
+  const n = 2 + (onMeasure ? 1 : 0) + (onReflect ? 1 : 0);
   return (
-    <div className="cal-two" style={onMeasure ? { gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' } : undefined}>
-      <button className="btn-ghost" style={{ minHeight: 32 }} onClick={onQuick}>
-        ＋ その場の5分
-      </button>
-      <button className="btn-ghost" style={{ minHeight: 32 }} onClick={onMemo}>
-        ＋ メモ
-      </button>
-      {onMeasure && (
-        <button className="btn-ghost" style={{ minHeight: 32 }} onClick={onMeasure}>
-          ＋ 測る
-        </button>
-      )}
+    <div className="ghosts" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
+      <button onClick={onQuick}>＋ その場の5分</button>
+      <button onClick={onMemo}>＋ メモ</button>
+      {onMeasure && <button onClick={onMeasure}>＋ 測る</button>}
+      {onReflect && <button onClick={onReflect}>振り返り</button>}
     </div>
   );
 }
