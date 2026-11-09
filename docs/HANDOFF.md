@@ -45,6 +45,7 @@ v0 を iPhone・iPad で運用中。「5分だけ始める」（Web プッシュ
 - **マージは本人が押す**。Claude の `gh api .../merge` は権限で止められる。PR を積み重ねると本人が順番を間違えるので、main 向けに1つずつ出す
 - **GitHub の設定変更（公開設定・Pages・Variables）も本人**。Supabase の SQL は本人が SQL Editor で実行（migrations 0001〜0008 実行済み）。Edge Function「push」は登録済み（Verify JWT オフ）。秘密値はチャットに貼らせない
 - **iPad（iPadOS 27.2）のホーム画面アプリは、同じ画面に文字欄とパスワード欄が並ぶ／form の中にパスワード欄があると、入力欄をタップした瞬間に落ちる**。パスワード欄は単独の画面に置く（ログインは2段階、合言葉入力は別画面）。調査用に「入力欄のテスト」画面がログイン画面から開ける
+- 設定は「予定と表示／始め方／通知／データ」の4つにまとめた（2026-11-09）。開発用の「今の日時を指定する」は `npm run dev` のときだけ出る
 - 「今」は `clock.now()` から取る。例外：同期の比較と始めた記録（StartSession）の時刻は本物の時計（`realNowIso()`）
 - 確認は `npm test`（Vitest）、`npx tsc -b`、`npm run build`。SQL は `scripts/test-sql.sh`（ローカル Postgres 16 が必要）。画面は Playwright（iPhone 13 サイズ）で通しで動かす
 - 公開URL https://yotteru.github.io/shiori/（main へのマージで自動公開）
