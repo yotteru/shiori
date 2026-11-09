@@ -13,7 +13,7 @@ import { quickCount, weekDates, weekSquares, type Square } from '../lib/week';
 
 // 記録タブ（2026-11-08）：眺める・振り返る場所。やった時間（始めた記録があれば実際の時間）と、始めた回数
 
-const shortDate = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+const shortDate = (d: string) => `${d.slice(5, 7)}/${d.slice(8, 10)}`;
 
 export function Records() {
   const now = useNow();
