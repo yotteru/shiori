@@ -39,7 +39,7 @@ import { addDays, formatLifeDateJa, jstTime, lifeDate, minutesIntoLifeDay, weekd
 import type { Plan, PlanItem, StartSession } from '../lib/types';
 import { NightFinishedExtras } from './Backup';
 import { Calendar, PX_PER_MIN, type CalBlock } from './Calendar';
-import { MinutesSelect, Sheet, TimeSelect, Toast } from './common';
+import { EndSelect, formatEnd, Sheet, TimeSelect, Toast } from './common';
 import { DoneSheet } from './DoneSheet';
 import { MemoInput } from './MemoBox';
 import { MeasureSheet } from './MeasureSheet';
@@ -670,7 +670,7 @@ function FixedSheet({
   const edits = plan?.fixedEdits ?? {};
   const [title, setTitle] = useState('');
   const [start, setStart] = useState('10:00');
-  const [min, setMin] = useState(60);
+  const [end, setEnd] = useState(11 * 60);
   const toMin = (hm: string) => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
   return (
     <Sheet onClose={onClose} label="この日の固定">
@@ -706,7 +706,7 @@ function FixedSheet({
           <div className="stack" style={{ gap: 0 }}>
             <b>{x.title}</b>
             <span className="small muted mono">
-              {formatMinute(x.start)}–{formatMinute(x.start + x.min)}・この日だけ
+              {x.allDay ? '終日' : `${formatMinute(x.start)}–${formatEnd(x.start + x.min)}`}・この日だけ
             </span>
           </div>
           <button className="btn" style={{ minHeight: 36 }} onClick={() => removeExtraFixed(date, x.id)}>
@@ -718,14 +718,22 @@ function FixedSheet({
         <span className="label">この日だけの予定を足す</span>
         <input className="input" value={title} placeholder="例：歯医者" onChange={(e) => setTitle(e.target.value)} />
         <div className="row">
-          <TimeSelect label="開始" value={start} onChange={setStart} />
-          <MinutesSelect value={min} onChange={setMin} />
+          <TimeSelect
+            label="開始"
+            value={start}
+            onChange={(v) => {
+              setStart(v);
+              if (end < toMin(v) + 30) setEnd(toMin(v) + 60);
+            }}
+          />
+          <span className="small muted">〜</span>
+          <EndSelect start={toMin(start)} value={end} onChange={setEnd} />
         </div>
         <button
           className="btn"
           disabled={!title.trim()}
           onClick={async () => {
-            await addExtraFixed(date, title.trim(), toMin(start), min, source);
+            await addExtraFixed(date, title.trim(), toMin(start), Math.max(30, end - toMin(start)), source);
             setTitle('');
           }}
         >

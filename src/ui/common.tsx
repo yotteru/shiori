@@ -34,6 +34,32 @@ export function TimeSelect({ value, onChange, label, step = 15 }: { value: strin
   );
 }
 
+/** 終わりの時刻（その日の 0:00 からの分）。翌日にまたがるときは「翌」を付ける */
+export function formatEnd(m: number): string {
+  const hh = Math.floor(m / 60);
+  const mm = String(m % 60).padStart(2, '0');
+  return m >= 24 * 60 ? `翌${hh - 24}:${mm}` : `${String(hh).padStart(2, '0')}:${mm}`;
+}
+
+/**
+ * 終わりの時刻を選ぶ（2026-11-09）。開始の30分後から16時間後まで15分刻み。
+ * 仕事（9時間）や睡眠（翌朝まで）のような長い予定も置ける
+ */
+export function EndSelect({ start, value, onChange }: { start: number; value: number; onChange: (end: number) => void }) {
+  const opts: number[] = [];
+  for (let m = start + 30; m <= start + 16 * 60; m += 15) opts.push(m);
+  const shown = opts.includes(value) ? value : opts.find((m) => m >= value) ?? opts[opts.length - 1];
+  return (
+    <select className="select mono" aria-label="終わり" value={shown} onChange={(e) => onChange(Number(e.target.value))}>
+      {opts.map((m) => (
+        <option key={m} value={m}>
+          {formatEnd(m)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function Sheet({ children, onClose, label }: { children: ReactNode; onClose: () => void; label: string }) {
   return (
     <div className="backdrop" onClick={onClose}>
