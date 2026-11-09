@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLive } from '../hooks';
 import { getMeta, updateMeta } from '../lib/db';
-import { focusShortcutUrl, SHORTCUT_START } from '../lib/shortcut';
+import { SHORTCUT_START } from '../lib/shortcut';
 import { DEFAULT_STOP_REASONS } from '../lib/starts';
 
 // 始め方の設定（2026-11-08）：集中モードのショートカットと、「ここまで」の理由の候補。どちらも端末ごと
@@ -26,9 +26,6 @@ export function StartSettings() {
         </a>
         。集中モードは自動では切れないので、終わったら Apple Watch やコントロールセンターから切ってください。
       </span>
-      <a className="btn" href={focusShortcutUrl(5)}>
-        ショートカットを試す
-      </a>
 
       <span className="label" style={{ marginTop: 8 }}>
         「ここまで」の理由の候補

@@ -285,3 +285,4 @@ a.btn { display: flex; align-items: center; justify-content: center; text-decora
 .cell.plan { border: 1.5px solid var(--line); }
 .cell.half { border: 1.5px solid var(--done); background: linear-gradient(135deg, var(--done) 50%, transparent 50%); }
 .cell.full { border: 1.5px solid var(--done); background: var(--done); }
+.divider { border: 0; border-top: 1px solid var(--line-soft); margin: 6px 0; width: 100%; }

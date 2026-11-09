@@ -11,7 +11,7 @@ import {
 } from '../lib/startReminders';
 import { supabase } from '../lib/supabase';
 
-// 予定の開始時刻の通知の設定（2026-11-08）。文面・タイミング・対象を決める。端末ごと
+// 予定の開始時刻の通知と日曜の知らせの設定（2026-11-08・11-09）。端末ごと。「通知」のカードの中に入る
 export function StartReminderSettingsCard() {
   const meta = useLive(() => getMeta(), []);
   const [draft, setDraft] = useState<string | null>(null);
@@ -25,16 +25,12 @@ export function StartReminderSettingsCard() {
   };
 
   return (
-    <div className="card">
-      <span className="label">予定の開始時刻の通知</span>
-      <span className="sub">カレンダーに置いた今日・明日の行き先の時刻に、この端末へ通知します（上の「5分の知らせ」で通知を受け取る準備が必要です）。</span>
+    <div className="stack">
+      <span className="label">予定の開始時刻</span>
+      <span className="sub">カレンダーに置いた今日・明日の行き先の時刻に知らせます。</span>
       <label className="row" style={{ gap: 8, alignItems: 'center' }}>
         <input type="checkbox" checked={s.enabled} onChange={(e) => void save({ enabled: e.target.checked })} />
         <span>開始時刻に知らせる</span>
-      </label>
-      <label className="row" style={{ gap: 8, alignItems: 'center' }}>
-        <input type="checkbox" checked={!!meta.weekReminder} onChange={(e) => void updateMeta({ weekReminder: e.target.checked })} />
-        <span>日曜の21時に「来週の見通し」を知らせる</span>
       </label>
 
       {s.enabled && (
@@ -92,6 +88,13 @@ export function StartReminderSettingsCard() {
           </span>
         </>
       )}
+      <span className="label" style={{ marginTop: 8 }}>
+        日曜の知らせ
+      </span>
+      <label className="row" style={{ gap: 8, alignItems: 'center' }}>
+        <input type="checkbox" checked={!!meta.weekReminder} onChange={(e) => void updateMeta({ weekReminder: e.target.checked })} />
+        <span>日曜の21時に「来週の見通し」を知らせる</span>
+      </label>
     </div>
   );
 }

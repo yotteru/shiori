@@ -9,14 +9,12 @@ import { BackupSettings, ExportSettings } from './ui/Backup';
 import { InputTest, isInputTestOpen } from './ui/InputTest';
 import { ConfigMissing, InstallGuide } from './ui/InstallGuide';
 import { Login } from './ui/Login';
-import { NotifySettings } from './ui/NotifySettings';
 import { DayView } from './ui/DayView';
 import { Records } from './ui/Records';
 import { CalendarViewSettings, RoutineSettings } from './ui/RoutineSettings';
 import { Onboarding } from './ui/Onboarding';
 import { Settings } from './ui/Settings';
-import { PushSettings } from './ui/PushSettings';
-import { StartReminderSettingsCard } from './ui/StartReminderSettings';
+import { NotificationSettings } from './ui/NotificationSettings';
 import { StartSettings } from './ui/StartSettings';
 import { useStartReminderSync } from './ui/useStartReminderSync';
 import { SyncSettings } from './ui/SyncSettings';
@@ -88,15 +86,17 @@ function Main() {
           <Settings
             sections={
               <>
+                <span className="section-label">予定と表示</span>
                 <RoutineSettings />
                 <CalendarViewSettings />
+                <span className="section-label">始め方</span>
+                <StartSettings />
+                <span className="section-label">通知</span>
+                <NotificationSettings />
+                <span className="section-label">データ</span>
                 <SyncSettings />
                 <BackupSettings />
                 <ExportSettings />
-                <NotifySettings />
-                <StartSettings />
-                <PushSettings />
-                <StartReminderSettingsCard />
               </>
             }
           />

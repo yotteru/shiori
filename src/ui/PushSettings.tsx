@@ -3,7 +3,7 @@ import { currentEndpoint, enablePush, pushPermission, schedulePush } from '../li
 import { forgetSentStartReminders } from '../lib/startReminders';
 import { supabase } from '../lib/supabase';
 
-// 5分の知らせ（Web プッシュ）の準備とテスト。2026-11-08 追加
+// この端末で通知を受け取る（Web プッシュ）の準備とテスト。2026-11-08 追加、2026-11-09 に「通知」へまとめた
 export function PushSettings() {
   const [ready, setReady] = useState<boolean | null>(null);
   const [msg, setMsg] = useState('');
@@ -23,7 +23,7 @@ export function PushSettings() {
     setBusy(false);
     setReady(r.ok);
     if (r.ok) forgetSentStartReminders();
-    setMsg(r.ok ? 'この端末で通知を受け取れるようになりました。下のテストで確かめてください。' : r.reason);
+    setMsg(r.ok ? 'この端末で通知を受け取れるようになりました。下のテストで確かめられます。' : r.reason);
   };
 
   const test = async (sec: number) => {
@@ -39,10 +39,10 @@ export function PushSettings() {
   };
 
   return (
-    <div className="card">
-      <span className="label">5分の知らせ（通知）</span>
+    <div className="stack">
+      <span className="label">この端末で受け取る</span>
       <span className="sub">
-        「5分だけ始める」の知らせを、この端末に通知で送ります。iPhone の画面が消えていれば Apple Watch にも届きます。
+        5分の知らせ・予定の開始時刻・日曜の知らせを、この端末に通知で送ります。iPhone の画面が消えていれば Apple Watch にも届きます。iPad やアプリを入れ直したときは、もう一度登録してください。
       </span>
       {perm === 'unsupported' ? (
         <span className="small muted">この画面では通知を使えません。ホーム画面のしおりから開いてください。</span>
@@ -54,14 +54,9 @@ export function PushSettings() {
           <button className="btn" disabled={busy} onClick={enable}>
             {ready ? 'もう一度登録する' : 'この端末で通知を受け取る'}
           </button>
-          <div className="cal-two">
-            <button className="btn" disabled={busy || !ready} onClick={() => test(60)}>
-              テスト：1分後
-            </button>
-            <button className="btn" disabled={busy || !ready} onClick={() => test(300)}>
-              テスト：5分後
-            </button>
-          </div>
+          <button className="btn" disabled={busy || !ready} onClick={() => test(60)}>
+            テスト：1分後に届く
+          </button>
         </>
       )}
       {msg && <span className="small muted">{msg}</span>}
