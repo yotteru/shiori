@@ -44,9 +44,9 @@ import { DoneSheet } from './DoneSheet';
 import { MemoInput } from './MemoBox';
 import { MeasureSheet } from './MeasureSheet';
 import { JournalCard, ReviewCard } from './Reflection';
-import { WeekView } from './WeekView';
-import { useSwipe } from './useSwipe';
-import { allDayEvents } from '../lib/week';
+import { allocationItems, DaySheet, loadWeekMode, saveWeekMode, WeekBody, weekLabel, weekTitle } from './WeekView';
+import { slideTo, useSwipe } from './useSwipe';
+import { allDayEvents, defaultWeekOffset, weekDates } from '../lib/week';
 
 // しおりタブ（2026-11-08 カレンダー版）。「今日」「明日」をいつでも切り替えて、縦のカレンダーで組む
 
@@ -64,7 +64,6 @@ export function DayView() {
 
   const data = useLive(
     async () => ({
-      plan: await db.plans.get(date),
       yesterday: await db.plans.get(addDays(today, -1)),
       journal: await db.journals.get(today),
       plans: await db.plans.toArray(),
@@ -75,7 +74,7 @@ export function DayView() {
       meta: await getMeta(),
       starts: await db.starts.toArray(),
     }),
-    [date, today],
+    [today],
   );
 
   const [sel, setSel] = useState<string | null>(null);
@@ -88,6 +87,9 @@ export function DayView() {
   const [topH, setTopH] = useState(0);
   const [dockH, setDockH] = useState(140);
   const [swipeEl, setSwipeEl] = useState<HTMLDivElement | null>(null);
+  const [weekOffset, setWeekOffset] = useState(() => defaultWeekOffset(today, Number(jstTime(now).slice(0, 2))));
+  const [weekMode, setWeekModeState] = useState<'cal' | 'list'>(loadWeekMode);
+  const [weekOpen, setWeekOpen] = useState<string | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
 
@@ -122,10 +124,10 @@ export function DayView() {
 
   // 開いたとき・今日と明日を切り替えたとき：今日は「いま」の少し前、明日は設定の位置へ
   const loaded = !!data;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!loaded) return;
-    const id = window.setTimeout(() => scrollToMinute(day === 'today' ? nowMin - 90 : view.focus * 60), 30);
-    return () => window.clearTimeout(id);
+    if (day === 'week') window.scrollTo(0, 0);
+    else scrollToMinute(nowOnDay !== undefined ? nowOnDay - 90 : view.focus * 60);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day, loaded]);
 
@@ -139,10 +141,19 @@ export function DayView() {
       setSel(null);
       setHeld(null);
       setGap(null);
-      window.scrollTo(0, 0);
     },
     [dayIdx],
   );
+  const goTo = (d: Day) => {
+    const to = DAY_ORDER.indexOf(d);
+    if (to === dayIdx) return;
+    slideTo(swipeEl, to > dayIdx ? 'left' : 'right', () => {
+      setDay(d);
+      setSel(null);
+      setHeld(null);
+      setGap(null);
+    });
+  };
   useSwipe(swipeEl, { enabled: !sel, canLeft: dayIdx < 2, canRight: dayIdx > 0, onSwipe: switchDay });
 
   const segEl = (
@@ -153,12 +164,7 @@ export function DayView() {
           role="tab"
           aria-selected={day === d}
           aria-pressed={day === d}
-          onClick={() => {
-            setDay(d);
-            setSel(null);
-            setHeld(null);
-            setGap(null);
-          }}
+          onClick={() => goTo(d)}
         >
           {d === 'today' ? '今日' : d === 'tomorrow' ? '明日' : '週'}
         </button>
@@ -167,9 +173,9 @@ export function DayView() {
   );
 
   if (!data) return null;
-  if (day === 'week') return <WeekView today={today} hourJst={Number(jstTime(now).slice(0, 2))} footer={segEl} swipeRef={setSwipeEl} />;
 
-  const plan = data.plan;
+  const plan = data.plans.find((p) => p.lifeDate === date);
+  const weekDates_ = weekDates(today, weekOffset);
   const items = plan ? itemsByStart(plan) : [];
   const next = day === 'today' && plan ? nextItem(plan) : undefined;
   const fixed = fixedBlocksFor(date, data.routines, plan);
@@ -205,6 +211,11 @@ export function DayView() {
   const activeTracks = data.tracks.filter((t) => !t.archivedAt && t.type !== 'number');
   const numberTracks = data.tracks.filter((t) => !t.archivedAt && t.type === 'number');
   const hasNumber = numberTracks.length > 0;
+  const allocItems = allocationItems(data.plans, weekDates_, activeTracks);
+  const setWeekMode = (m: 'cal' | 'list') => {
+    setWeekModeState(m);
+    saveWeekMode(m);
+  };
   const unplacedIntents = (plan?.intents ?? []).filter((id) => !items.some((i) => i.trackId === id) && cands.some((c) => c.trackId === id)).length;
   const pendingYesterday = data.yesterday?.items.some((i) => i.status === 'planned') ? data.yesterday : undefined;
   // 始めて、まだ終えていないもの（画面のタイマーは置かない。2026-11-08）
@@ -281,8 +292,7 @@ export function DayView() {
       <div ref={topRef} className="cal-top">
         <div className="cal-title">
           <h1>
-            {formatLifeDateJa(date)}
-            {day === 'today' ? ' 今日' : ' 明日'}
+            {day === 'week' ? `${weekTitle(weekDates_)} ${weekLabel(weekOffset)}` : `${formatLifeDateJa(date)} ${day === 'today' ? '今日' : '明日'}`}
           </h1>
           <div className="row-scroll" style={{ minWidth: 0 }}>
             {day === 'today' && pendingYesterday && (
@@ -297,20 +307,34 @@ export function DayView() {
             ))}
           </div>
         </div>
-        {allDayEvents(plan).length > 0 && (
+        {day !== 'week' && allDayEvents(plan).length > 0 && (
           <div className="small" style={{ fontWeight: 700 }}>
             終日：{allDayEvents(plan).map((x) => x.title).join('・')}
           </div>
         )}
-        <div className="cal-lanes">
-          <button onClick={() => setSheet('fixed')}>固定 ▾</button>
-          <span>取り組み</span>
-        </div>
+        {day === 'week' ? (
+          <div className="seg seg-mini" role="group" aria-label="週の表示">
+            <button aria-pressed={weekMode === 'cal'} onClick={() => setWeekMode('cal')}>
+              カレンダー
+            </button>
+            <button aria-pressed={weekMode === 'list'} onClick={() => setWeekMode('list')}>
+              リスト
+            </button>
+          </div>
+        ) : (
+          <div className="cal-lanes">
+            <button onClick={() => setSheet('fixed')}>固定 ▾</button>
+            <span>取り組み</span>
+          </div>
+        )}
       </div>
-      {/* .screen の上の余白（20px＋安全領域）と間隔（16px）を差し引いて、見出しの下から始まるようにする */}
-      <div style={{ height: `max(0px, calc(${topH}px - 36px - env(safe-area-inset-top)))`, marginTop: -16 }} aria-hidden="true" />
+      {/* .screen の上の余白（20px＋安全領域）を差し引き、見出しのすぐ下から始まるようにする（固定の見出しは間隔に数えない） */}
+      <div style={{ height: `max(0px, calc(${topH}px - 20px - env(safe-area-inset-top)))`, marginTop: -16 }} aria-hidden="true" />
 
-      <div ref={setSwipeEl} style={{ touchAction: 'pan-y' }}>
+      <div ref={setSwipeEl} className="pane">
+        {day === 'week' ? (
+          <WeekBody dates={weekDates_} today={today} plans={data.plans} routines={data.routines} tracks={activeTracks} view={view} mode={weekMode} onOpen={setWeekOpen} />
+        ) : (
       <Calendar
         view={view}
         blocks={blocks}
@@ -333,19 +357,43 @@ export function DayView() {
         topInset={() => topRef.current?.getBoundingClientRect().bottom ?? 0}
         bottomInset={bottomInset}
       />
+        )}
+        <div style={{ height: dockH + 24 }} aria-hidden="true" />
       </div>
-      <div style={{ height: dockH + 24 }} aria-hidden="true" />
 
-      <nav className="cal-index" aria-label="時刻へ移動" style={{ top: topH + 8, transform: "none" }}>
+      {day !== 'week' && <nav className="cal-index" aria-label="時刻へ移動" style={{ top: topH + 8, transform: "none" }}>
         {Array.from({ length: Math.ceil((view.end - view.start) / 2) }, (_, k) => view.start + k * 2).map((h) => (
           <button key={h} onClick={() => scrollToMinute(h * 60, true)}>
             {h >= 24 ? h - 24 : h}
           </button>
         ))}
-      </nav>
+      </nav>}
 
       <div ref={dockRef} className="cal-dock">
-        {selected ? (
+        {day === 'week' ? (
+          <>
+            <div className="row-scroll tray alloc-row-dock">
+              {allocItems.length ? (
+                allocItems.map((x) => (
+                  <span key={x.track.id} className={`week-chip${x.track.type === 'habit' ? ' h' : ' p'}`}>
+                    <b>{x.track.name}</b> {x.days.join('・')}
+                  </span>
+                ))
+              ) : (
+                <span className="small muted">日をタップして「この日にやること」の札を付ける</span>
+              )}
+            </div>
+            <div className="cal-two">
+              <button className="btn" disabled={weekOffset <= -4} onClick={() => slideTo(swipeEl, 'right', () => setWeekOffset(weekOffset - 1))}>
+                ‹ 前の週
+              </button>
+              <button className="btn" disabled={weekOffset >= 4} onClick={() => slideTo(swipeEl, 'left', () => setWeekOffset(weekOffset + 1))}>
+                次の週 ›
+              </button>
+            </div>
+            <QuickLink onQuick={() => setSheet('quick')} onMemo={() => setSheet('memo')} onMeasure={hasNumber ? () => setSheet('measure') : undefined} />
+          </>
+        ) : selected ? (
           <div className="selbar">
             <div className="r">
               <b>{selected.title}</b>
@@ -460,9 +508,13 @@ export function DayView() {
                 </button>
               </div>
             </div>
-          ) : null
+          ) : (
+            <button className="btn" onClick={() => setSheet('reflect')}>
+              今日の振り返り（答え合わせ・ジャーナル）
+            </button>
+          )
             ) : (
-          <div className="stack" style={{ gap: 6 }}>
+          <div className={unplacedIntents > 0 ? 'cal-two' : 'stack'}>
           {unplacedIntents > 0 && (
             <button
               className="btn"
@@ -471,7 +523,7 @@ export function DayView() {
                 setToast({ message: n ? `札の${n}件を空きに置きました。動かして調整できます` : '入る空きが見つかりませんでした' });
               }}
             >
-              札のぶんを置く（{unplacedIntents}件）
+              札を置く（{unplacedIntents}）
             </button>
           )}
           <button
@@ -482,7 +534,7 @@ export function DayView() {
               setSheet('confirmed');
             }}
           >
-            この計画で明日を迎える
+            {unplacedIntents > 0 ? 'この計画で迎える' : 'この計画で明日を迎える'}
           </button>
           </div>
             )}
@@ -496,14 +548,15 @@ export function DayView() {
         )}
         {segEl}
       </div>
-      <button
+      {day !== 'week' && (<button
         className="cal-fab"
         style={{ bottom: `calc(${dockH + 56 + 12}px + env(safe-area-inset-bottom))` }}
         onClick={() => scrollToMinute(nowOnDay !== undefined ? nowOnDay - 60 : view.focus * 60, true)}
       >
         {nowOnDay !== undefined ? 'いま' : `${view.focus}時`}
-      </button>
+      </button>)}
 
+      {weekOpen && <DaySheet date={weekOpen} plan={data.plans.find((p) => p.lifeDate === weekOpen)} routines={data.routines} tracks={activeTracks} onClose={() => setWeekOpen(null)} />}
       {sheet === 'fixed' && <FixedSheet date={date} plan={plan} routines={data.routines} source={source} onClose={() => setSheet(null)} />}
       {sheet === 'reflect' && (
         <Sheet onClose={() => setSheet(null)} label="今日の振り返り">
