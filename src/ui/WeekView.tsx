@@ -14,8 +14,7 @@ const PX_PER_HOUR = 16;
 const MODE_KEY = 'shiori-week-mode';
 
 
-const dayNum = (d: string) => Number(d.slice(8, 10));
-const md = (d: string) => `${Number(d.slice(5, 7))}月${dayNum(d)}日`;
+const dayNum = (d: string) => d.slice(8, 10);
 const hours = (min: number) => `${Math.round(min / 30) / 2}h`;
 
 export function loadWeekMode(): 'cal' | 'list' {
@@ -39,7 +38,7 @@ export function weekLabel(offset: number): string {
 }
 
 export function weekTitle(dates: string[]): string {
-  return `${md(dates[0])}〜${dayNum(dates[6])}日`;
+  return `${dates[0].slice(5, 7)}/${dates[0].slice(8, 10)}〜${dates[6].slice(5, 7)}/${dates[6].slice(8, 10)}`;
 }
 
 /** 下の操作エリアに出す「この週にやる日」（札を付けた曜日）。札がなければ空 */
