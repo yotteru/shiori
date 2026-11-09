@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useLive, useNow } from '../hooks';
 import { formatDuration } from '../lib/calendar';
 import { lastDoneByTrack } from '../lib/candidates';
@@ -6,6 +6,8 @@ import { db } from '../lib/db';
 import { addDays, lifeDate } from '../lib/lifeDate';
 import { weeklyHistory, weeklyStarts } from '../lib/records';
 import { daysSinceTouched } from '../lib/tracks';
+import type { Plan, StartSession, Track } from '../lib/types';
+import { quickCount, weekDates, weekSquares, type Square } from '../lib/week';
 
 // 記録タブ（2026-11-08）：眺める・振り返る場所。やった時間（始めた記録があれば実際の時間）と、始めた回数
 
@@ -44,6 +46,7 @@ export function Records() {
   return (
     <div className="stack" style={{ gap: 12 }} onPointerDown={(e) => !(e.target as HTMLElement).closest('[data-tip]') && setTip(null)}>
       <h1 className="title">記録</h1>
+      {tracks.length > 0 && <WeekSquares today={today} tracks={tracks} plans={data.plans} starts={data.starts} />}
       {tracks.length === 0 && <p className="sub">取り組みを作って済をつけると、ここに時間が積み上がります。</p>}
 
       {tracks.length > 0 && (
@@ -171,5 +174,65 @@ export function Records() {
         </div>
       )}
     </div>
+  );
+}
+
+const WD = ['月', '火', '水', '木', '金', '土', '日'];
+const SQ_LABEL: Record<Square, string> = { full: '済', half: '始めた', plan: '手つかず', none: 'なし' };
+
+/** 振り返りの7マス（2026-11-09）：取り組み × 曜日。埋まったマスを眺めるだけ（空いたマスへの言葉は出さない） */
+function WeekSquares({ today, tracks, plans, starts }: { today: string; tracks: Track[]; plans: Plan[]; starts: StartSession[] }) {
+  const [offset, setOffset] = useState(0);
+  const dates = weekDates(today, offset);
+  const sq = weekSquares(plans, starts, dates);
+  const label = offset === 0 ? '今週' : offset === -1 ? '先週' : `${-offset}週まえ`;
+  return (
+    <section className="viz-card" aria-label="週の7マス">
+      <div className="weekbar">
+        <button className="btn-icon" aria-label="前の週" disabled={offset <= -8} onClick={() => setOffset(offset - 1)}>
+          ‹
+        </button>
+        <div className="stack" style={{ gap: 0, alignItems: 'center' }}>
+          <span className="small muted">{label}</span>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>
+            {shortDate(dates[0])}〜{shortDate(dates[6])}
+          </span>
+        </div>
+        <button className="btn-icon" aria-label="次の週" disabled={offset >= 0} onClick={() => setOffset(offset + 1)}>
+          ›
+        </button>
+      </div>
+      <div className="grid7">
+        <span />
+        {WD.map((w) => (
+          <span key={w} className="hd">
+            {w}
+          </span>
+        ))}
+        {tracks.map((t) => (
+          <Fragment key={t.id}>
+            <span className="nm">{t.name}</span>
+            {(sq[t.id] ?? Array(7).fill('none')).map((s: Square, i: number) => (
+              <span key={i} className={`cell ${s}`} role="img" aria-label={`${t.name} ${WD[i]}曜 ${SQ_LABEL[s]}`} />
+            ))}
+          </Fragment>
+        ))}
+      </div>
+      <div className="legend">
+        <span>
+          <i className="cell full" />済
+        </span>
+        <span>
+          <i className="cell half" />始めた（ここまで）
+        </span>
+        <span>
+          <i className="cell plan" />置いたけど手つかず
+        </span>
+        <span>
+          <i className="cell none" />なし
+        </span>
+      </div>
+      <span className="small muted">その場の5分　{quickCount(starts, dates)}回</span>
+    </section>
   );
 }

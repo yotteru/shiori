@@ -42,10 +42,12 @@ import { MinutesSelect, Sheet, TimeSelect, Toast } from './common';
 import { DoneSheet } from './DoneSheet';
 import { MemoInput } from './MemoBox';
 import { JournalCard, ReviewCard } from './Reflection';
+import { WeekView } from './WeekView';
+import { allDayEvents } from '../lib/week';
 
 // しおりタブ（2026-11-08 カレンダー版）。「今日」「明日」をいつでも切り替えて、縦のカレンダーで組む
 
-type Day = 'today' | 'tomorrow';
+type Day = 'today' | 'tomorrow' | 'week';
 type SheetKind = null | 'fixed' | 'reflect' | 'yesterday' | 'first' | 'confirmed' | 'quick' | 'stop' | 'memo';
 const TAB_H = 56;
 
@@ -118,7 +120,29 @@ export function DayView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day, loaded]);
 
+  const segEl = (
+    <div className="seg" role="tablist" aria-label="今日・明日・週" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+      {(['today', 'tomorrow', 'week'] as const).map((d) => (
+        <button
+          key={d}
+          role="tab"
+          aria-selected={day === d}
+          aria-pressed={day === d}
+          onClick={() => {
+            setDay(d);
+            setSel(null);
+            setHeld(null);
+            setGap(null);
+          }}
+        >
+          {d === 'today' ? '今日' : d === 'tomorrow' ? '明日' : '週'}
+        </button>
+      ))}
+    </div>
+  );
+
   if (!data) return null;
+  if (day === 'week') return <WeekView today={today} hourJst={Number(jstTime(now).slice(0, 2))} header={segEl} />;
 
   const plan = data.plan;
   const items = plan ? itemsByStart(plan) : [];
@@ -145,7 +169,10 @@ export function DayView() {
 
   // 候補（今日は前回の続きが新しい順）
   const all = buildCandidates({ today, tracks: data.tracks, steps: data.steps, leftovers: data.leftovers });
-  const cands = day === 'today' ? morningCandidates(all, data.tracks, lastDoneByTrack(data.plans, data.steps), all.length) : all;
+  const ordered = day === 'today' ? morningCandidates(all, data.tracks, lastDoneByTrack(data.plans, data.steps), all.length) : all;
+  // 週の見通しで、この日に札を付けた取り組みを先頭に（2026-11-09）
+  const intents = plan?.intents ?? [];
+  const cands = [...ordered.filter((c) => intents.includes(c.trackId)), ...ordered.filter((c) => !intents.includes(c.trackId))];
   const placedKeys = new Set(items.map((i) => candidateKey(i.trackId, i.stepId)));
   const heldCand = cands.find((c) => c.key === held);
 
@@ -224,24 +251,7 @@ export function DayView() {
   return (
     <>
       <div ref={topRef} className="cal-top">
-        <div className="seg" role="tablist" aria-label="今日と明日">
-          {(['today', 'tomorrow'] as const).map((d) => (
-            <button
-              key={d}
-              role="tab"
-              aria-selected={day === d}
-              aria-pressed={day === d}
-              onClick={() => {
-                setDay(d);
-                setSel(null);
-                setHeld(null);
-                setGap(null);
-              }}
-            >
-              {d === 'today' ? '今日' : '明日'}
-            </button>
-          ))}
-        </div>
+        {segEl}
         <div className="cal-title">
           <h1>
             {formatLifeDateJa(date)}
@@ -303,6 +313,7 @@ export function DayView() {
                   }}
                 >
                   <small>
+                    {intents.includes(c.trackId) && <b className="tag-mark">札</b>}
                     {c.kind === 'leftover' ? 'やり残し' : c.trackName}・{Math.max(30, c.minutes)}分
                   </small>
                   <span>{c.title}</span>
@@ -310,6 +321,11 @@ export function DayView() {
               );
             })}
         </div>
+        {allDayEvents(plan).length > 0 && (
+          <div className="small" style={{ fontWeight: 700 }}>
+            終日：{allDayEvents(plan).map((x) => x.title).join('・')}
+          </div>
+        )}
         <div className={`cal-hint${gap || heldCand ? ' on' : ''}`}>{hint}</div>
         <div className="cal-lanes">
           <button onClick={() => setSheet('fixed')}>固定 ▾</button>

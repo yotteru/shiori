@@ -46,4 +46,12 @@ describe('開始時刻の通知', () => {
     expect(buildStartReminders(plans, '2026-11-09', { ...on, target: 'first' }, [], now)[0].send_at).toBe('2026-11-09T04:00:00.000Z');
     expect(buildStartReminders(plans, '2026-11-09', DEFAULT_START_REMINDER, [], now)).toEqual([]);
   });
+
+  it('日曜の夜の知らせ：今日か明日が日曜なら21時に1件。オフなら出さない', () => {
+    const sat = Date.parse('2026-11-14T12:00:00+09:00');
+    const r = buildStartReminders([], '2026-11-14', DEFAULT_START_REMINDER, [], sat, true);
+    expect(r).toEqual([{ send_at: '2026-11-15T12:00:00.000Z', body: expect.stringContaining('来週') }]);
+    expect(buildStartReminders([], '2026-11-14', DEFAULT_START_REMINDER, [], sat, false)).toEqual([]);
+    expect(buildStartReminders([], '2026-11-12', DEFAULT_START_REMINDER, [], sat, true)).toEqual([]);
+  });
 });

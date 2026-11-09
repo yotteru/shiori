@@ -51,6 +51,8 @@ export interface Plan {
   extraFixed?: ExtraFixed[];
   /** 祝日・有休など、この日を休日として扱う */
   holiday?: boolean;
+  /** この日にやること（週の見通しで付ける取り組みの札。時刻は決めない。2026-11-09） */
+  intents?: string[];
   /** 前の晩の準備（最初の行き先のために今夜やること） */
   prep?: { text: string; doneAt?: string };
   updatedAt?: string;
@@ -63,6 +65,8 @@ export interface ExtraFixed {
   /** その日の 0:00 からの分（翌日にまたがるときは 1440 以上） */
   start: number;
   min: number;
+  /** 終日の予定（出張など。カレンダーには置かず、空き時間を0にする） */
+  allDay?: boolean;
 }
 
 /** いつもの固定（設定タブで決める。曜日ごとに毎日自動で置かれる） */
@@ -168,6 +172,8 @@ export interface Meta {
   focusShortcut?: boolean;
   /** 「ここまで」の理由の候補。端末ごと */
   stopReasons?: string[];
+  /** 日曜の夜に「来週の見通し」を知らせる（2026-11-09）。端末ごと */
+  weekReminder?: boolean;
   /** 予定の開始時刻の通知（2026-11-08）。端末ごと */
   startReminder?: {
     enabled: boolean;
