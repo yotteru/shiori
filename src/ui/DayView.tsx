@@ -10,6 +10,7 @@ import {
   itemsByStart,
   nextItem,
   placeStart,
+  removedFixedFor,
   weeklyDoneMinutes,
   type Gap,
 } from '../lib/calendar';
@@ -25,7 +26,6 @@ import {
   removeExtraFixed,
   removeItem,
   setFixedEdit,
-  setHoliday,
 } from '../lib/calendarActions';
 import { buildCandidates, candidateKey, lastDoneByTrack, morningCandidates, type Candidate } from '../lib/candidates';
 import { nowIso, toDate } from '../lib/clock';
@@ -34,15 +34,13 @@ import { shelveExpired } from '../lib/leftovers';
 import { cancelPush, pushPermission, schedulePush } from '../lib/push';
 import { activeSession } from '../lib/records';
 import { focusMinutes, focusShortcutUrl } from '../lib/shortcut';
-import { DEFAULT_STOP_REASONS, discardSession, endSession, setSessionPush, startSession, stopSession } from '../lib/starts';
-import { addDays, formatLifeDateJa, jstTime, lifeDate, minutesIntoLifeDay, weekday, formatShortJa } from '../lib/lifeDate';
+import { autoEndAt, autoEndSessions, DEFAULT_STOP_REASONS, discardSession, endSession, setSessionPush, startSession, stopSession } from '../lib/starts';
+import { addDays, jstTime, lifeDate, minutesIntoLifeDay, formatShortJa } from '../lib/lifeDate';
 import type { Plan, PlanItem, StartSession } from '../lib/types';
 import { NightFinishedExtras } from './Backup';
 import { Calendar, PX_PER_MIN, type CalBlock } from './Calendar';
-import { EndSelect, formatEnd, Sheet, TimeSelect, Toast } from './common';
+import { EndSelect, Sheet, TimeSelect, Toast } from './common';
 import { DoneSheet } from './DoneSheet';
-import { MemoInput } from './MemoBox';
-import { MeasureSheet } from './MeasureSheet';
 import { JournalCard, ReviewCard } from './Reflection';
 import { allocationItems, DaySheet, loadWeekMode, saveWeekMode, WeekBody, weekLabel, weekTitle } from './WeekView';
 import { slideTo, useSwipe } from './useSwipe';
@@ -52,7 +50,7 @@ import { allDayEvents, defaultWeekOffset, weekDates } from '../lib/week';
 
 type Day = 'today' | 'tomorrow' | 'week';
 const DAY_ORDER: Day[] = ['today', 'tomorrow', 'week'];
-type SheetKind = null | 'fixed' | 'reflect' | 'first' | 'confirmed' | 'quick' | 'stop' | 'memo' | 'measure';
+type SheetKind = null | 'reflect' | 'first' | 'confirmed' | 'quick' | 'stop';
 const TAB_H = 56;
 const toMin = (hm: string) => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
 
@@ -91,6 +89,7 @@ export function DayView() {
   const [weekOffset, setWeekOffset] = useState(() => defaultWeekOffset(today, Number(jstTime(now).slice(0, 2))));
   const [weekMode, setWeekModeState] = useState<'cal' | 'list'>(loadWeekMode);
   const [weekOpen, setWeekOpen] = useState<string | null>(null);
+  const [dayOpen, setDayOpen] = useState(false);
   const [addFixedAt, setAddFixedAt] = useState<number | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
@@ -102,6 +101,12 @@ export function DayView() {
       if (moved.length) await db.leftovers.bulkPut(moved);
     });
   }, [today]);
+
+  // 済・ここまでを押さなくても、予定の終わり（その場の5分は30分）を過ぎたら自動で終える（2026-11-09）
+  const minuteKey = Math.floor(now.getTime() / 60000);
+  useEffect(() => {
+    void autoEndSessions();
+  }, [minuteKey]);
 
   // 見出しは画面の上に重ねて固定。その高さぶん、ページの上を空けておく
   useLayoutEffect(() => {
@@ -158,8 +163,10 @@ export function DayView() {
   };
   useSwipe(swipeEl, { enabled: !sel, canLeft: dayIdx < 2, canRight: dayIdx > 0, onSwipe: switchDay });
 
+  // 今日｜明日｜週は細いレール（切り替えは横スライドが主。2026-11-09）
   const segEl = (
-    <div className="seg seg-thin" role="tablist" aria-label="今日・明日・週" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+    <div className="seg-rail" role="tablist" aria-label="今日・明日・週">
+      <span className="knob" style={{ transform: `translateX(${dayIdx * 100}%)` }} aria-hidden="true" />
       {(['today', 'tomorrow', 'week'] as const).map((d) => (
         <button
           key={d}
@@ -181,6 +188,7 @@ export function DayView() {
   const items = plan ? itemsByStart(plan) : [];
   const next = day === 'today' && plan ? nextItem(plan) : undefined;
   const fixed = fixedBlocksFor(date, data.routines, plan);
+  const removedFixed = removedFixedFor(date, data.routines, plan);
   const trackById = new Map(data.tracks.map((t) => [t.id, t]));
 
   const blocks: CalBlock[] = [
@@ -211,8 +219,6 @@ export function DayView() {
 
   const weekly = weeklyDoneMinutes(data.plans, today, data.starts);
   const activeTracks = data.tracks.filter((t) => !t.archivedAt && t.type !== 'number');
-  const numberTracks = data.tracks.filter((t) => !t.archivedAt && t.type === 'number');
-  const hasNumber = numberTracks.length > 0;
   const allocItems = allocationItems(data.plans, weekDates_, activeTracks);
   const setWeekMode = (m: 'cal' | 'list') => {
     setWeekModeState(m);
@@ -221,10 +227,21 @@ export function DayView() {
   const unplacedIntents = (plan?.intents ?? []).filter((id) => !items.some((i) => i.trackId === id) && cands.some((c) => c.trackId === id)).length;
   const pendingYesterday = data.yesterday?.items.some((i) => i.status === 'planned') ? data.yesterday : undefined;
   // 始めて、まだ終えていないもの（画面のタイマーは置かない。2026-11-08）
-  const active = activeSession(data.starts);
+  // 自動で終える時刻を過ぎたものは、書き込みを待たずに終えたものとして扱う
+  const realNow = new Date().toISOString();
+  const active = activeSession(data.starts.filter((s) => autoEndAt(s, data.plans) > realNow));
+  // その場の5分で始めた印（今日のカレンダーだけ。2026-11-09）
+  const marks =
+    day === 'today'
+      ? data.starts
+          .filter((s) => s.quick && s.lifeDate === today)
+          .map((s) => ({ id: s.id, minute: minutesIntoLifeDay(toDate(s.startedAt)) + 4 * 60, title: s.title, live: s.id === active?.id }))
+      : [];
   const activeItem = active?.planItemId ? data.plans.flatMap((p) => p.items).find((i) => i.id === active.planItemId) : undefined;
 
   const begin = async (input: Pick<StartSession, 'title' | 'planItemId' | 'trackId' | 'quick'>, plannedMinutes?: number) => {
+    // 前のものは startSession の中で自動で終わる。その5分の知らせだけ取り消す
+    if (active?.pushId) void cancelPush(active.pushId);
     const s = await startSession({ lifeDate: today, ...input });
     // 5分後の知らせ（Web プッシュ）。通知の準備がない・圏外のときは、知らせなしで始める
     const pushId = await schedulePush('five_min', 300);
@@ -292,38 +309,31 @@ export function DayView() {
   return (
     <>
       <div ref={topRef} className="cal-top">
+        {/* 1行目は日付だけ（今日・明日は押すと日のシート：休日・この日だけの予定・札）。2行目に今週の合計（2026-11-09） */}
         <div className="cal-title">
-          <h1>
-            {day === 'week' ? `${weekTitle(weekDates_)} ${weekLabel(weekOffset)}` : `${formatShortJa(date)} ${day === 'today' ? '今日' : '明日'}`}
-          </h1>
-          <div className="row-scroll" style={{ minWidth: 0 }}>
-            {activeTracks.map((t) => (
-              <span key={t.id} className="week-chip" style={{ background: t.type === 'habit' ? '#e3f2f0' : '#fdebdf' }}>
+          {day === 'week' ? (
+            <h1>{`${weekTitle(weekDates_)} ${weekLabel(weekOffset)}`}</h1>
+          ) : (
+            <button className="cal-day-btn" onClick={() => setDayOpen(true)} aria-label={`${formatShortJa(date)}のシートを開く（休日・この日だけの予定・札）`}>
+              <h1>{`${formatShortJa(date)} ${day === 'today' ? '今日' : '明日'}`}</h1>
+              <span aria-hidden="true">▾</span>
+            </button>
+          )}
+          {day !== 'week' && allDayEvents(plan).length > 0 && (
+            <span className="cal-allday">終日：{allDayEvents(plan).map((x) => x.title).join('・')}</span>
+          )}
+        </div>
+        <div className="row-scroll cal-sum" aria-label="今週の合計">
+          {activeTracks.length ? (
+            activeTracks.map((t) => (
+              <span key={t.id} className={`week-chip${t.type === 'habit' ? ' h' : ' p'}`}>
                 <b>{t.name}</b> <span className="mono">{formatDuration(weekly[t.id] ?? 0)}</span>
               </span>
-            ))}
-          </div>
+            ))
+          ) : (
+            <span className="small muted">今週の合計はここに出ます</span>
+          )}
         </div>
-        {day !== 'week' && allDayEvents(plan).length > 0 && (
-          <div className="small" style={{ fontWeight: 700 }}>
-            終日：{allDayEvents(plan).map((x) => x.title).join('・')}
-          </div>
-        )}
-        {day === 'week' ? (
-          <div className="seg seg-mini" role="group" aria-label="週の表示">
-            <button aria-pressed={weekMode === 'cal'} onClick={() => setWeekMode('cal')}>
-              カレンダー
-            </button>
-            <button aria-pressed={weekMode === 'list'} onClick={() => setWeekMode('list')}>
-              リスト
-            </button>
-          </div>
-        ) : (
-          <div className="cal-lanes">
-            <button onClick={() => setSheet('fixed')}>固定 ▾</button>
-            <span>取り組み</span>
-          </div>
-        )}
       </div>
       {/* .screen の上の余白（20px＋安全領域）を差し引き、見出しのすぐ下から始まるようにする（固定の見出しは間隔に数えない） */}
       <div style={{ height: `max(0px, calc(${topH}px - 20px - env(safe-area-inset-top)))`, marginTop: -16 }} aria-hidden="true" />
@@ -355,6 +365,12 @@ export function DayView() {
           setGap(null);
           setAddFixedAt(m);
         }}
+        removed={removedFixed}
+        onRestoreFixed={async (id, title) => {
+          await setFixedEdit(date, id, undefined, source);
+          setToast({ message: `「${title}」を戻しました` });
+        }}
+        marks={marks}
         topInset={() => topRef.current?.getBoundingClientRect().bottom ?? 0}
         bottomInset={bottomInset}
       />
@@ -384,15 +400,23 @@ export function DayView() {
                 <span className="small muted">日をタップして「この日にやること」の札を付ける</span>
               )}
             </div>
-            <div className="cal-two">
+            {/* 前の週・次の週の間に、カレンダー｜リストの切り替え（上は片手で届かないので下へ。2026-11-09） */}
+            <div className="week-nav">
               <button className="btn" disabled={weekOffset <= -4} onClick={() => slideTo(swipeEl, 'right', () => setWeekOffset(weekOffset - 1))}>
                 ‹ 前の週
               </button>
+              <div className="seg-pill" role="group" aria-label="週の表示">
+                <button aria-pressed={weekMode === 'cal'} onClick={() => setWeekMode('cal')}>
+                  カレンダー
+                </button>
+                <button aria-pressed={weekMode === 'list'} onClick={() => setWeekMode('list')}>
+                  リスト
+                </button>
+              </div>
               <button className="btn" disabled={weekOffset >= 4} onClick={() => slideTo(swipeEl, 'left', () => setWeekOffset(weekOffset + 1))}>
                 次の週 ›
               </button>
             </div>
-            <QuickLink onQuick={() => setSheet('quick')} onMemo={() => setSheet('memo')} onMeasure={hasNumber ? () => setSheet('measure') : undefined} />
           </>
         ) : selected ? (
           <div className="selbar">
@@ -472,7 +496,7 @@ export function DayView() {
           active ? (
             <div className="stack" style={{ gap: 4 }}>
               <span className="small" style={{ textAlign: 'center' }}>
-                {jstTime(toDate(active.startedAt))} に始めました。スマホを置いてどうぞ（5分でやめてもOK）
+                {jstTime(toDate(active.startedAt))} に始めました・押さなくても {jstTime(toDate(autoEndAt(active, data.plans)))} に終わります
               </span>
               <div className="cal-two">
                 <button
@@ -510,9 +534,15 @@ export function DayView() {
               </div>
             </div>
           ) : (
-            <button className={`btn${pendingYesterday ? ' has-dot' : ''}`} onClick={() => setSheet('reflect')}>
-              今日の振り返り（答え合わせ・ジャーナル）
-            </button>
+            // 次の行き先がないとき（仕事中など）は、計画にないことを5分だけ始める入口を主な操作に（2026-11-09）
+            <div className="cal-two">
+              <button className="btn-next" onClick={() => setSheet('quick')}>
+                何か5分だけ始める
+              </button>
+              <button className={`btn${pendingYesterday ? ' has-dot' : ''}`} style={{ fontWeight: 700 }} onClick={() => setSheet('reflect')}>
+                今日の振り返り
+              </button>
+            </div>
           )
             ) : (
           <div className={unplacedIntents > 0 ? 'cal-two' : 'stack'}>
@@ -539,14 +569,25 @@ export function DayView() {
           </button>
           </div>
             )}
-            <QuickLink
-              onQuick={() => setSheet('quick')}
-              onMemo={() => setSheet('memo')}
-              onMeasure={hasNumber ? () => setSheet('measure') : undefined}
-              // 主な操作に「今日の振り返り」を出している日は、ここには出さない（同じシートを開くため）
-              onReflect={day === 'today' && (active || next) ? () => setSheet('reflect') : undefined}
-              reflectDot={!!pendingYesterday}
-            />
+            {/* 今日：次の行き先があれば「5分だけ始める」の真下に「ほかのことを5分」。メモ・測るはしおりタブに置かない（2026-11-09） */}
+            {day === 'today' && (active || next) && (
+            <div className="dock-links">
+              {next && !active ? (
+                <button className="other" onClick={() => setSheet('quick')}>
+                  ▶ ほかのことを5分
+                </button>
+              ) : (
+                <span />
+              )}
+              <button
+                className={pendingYesterday ? 'has-dot' : undefined}
+                aria-label={pendingYesterday ? '振り返り（昨日の答え合わせが残っています）' : undefined}
+                onClick={() => setSheet('reflect')}
+              >
+                振り返り
+              </button>
+            </div>
+            )}
           </>
         )}
         {segEl}
@@ -560,6 +601,7 @@ export function DayView() {
       </button>)}
 
       {weekOpen && <DaySheet date={weekOpen} plan={data.plans.find((p) => p.lifeDate === weekOpen)} routines={data.routines} tracks={activeTracks} onClose={() => setWeekOpen(null)} />}
+      {dayOpen && day !== 'week' && <DaySheet date={date} plan={plan} routines={data.routines} tracks={activeTracks} source={source} onClose={() => setDayOpen(false)} />}
       {addFixedAt !== null && (
         <AddFixedSheet
           date={date}
@@ -572,7 +614,6 @@ export function DayView() {
           onClose={() => setAddFixedAt(null)}
         />
       )}
-      {sheet === 'fixed' && <FixedSheet date={date} plan={plan} routines={data.routines} source={source} onClose={() => setSheet(null)} />}
       {sheet === 'reflect' && (
         <Sheet onClose={() => setSheet(null)} label="今日の振り返り">
           <span style={{ fontSize: 16, fontWeight: 700 }}>今日の振り返り</span>
@@ -622,23 +663,6 @@ export function DayView() {
           {confirmed.ping === 'failed' && <p className="small muted">計画した日付をサーバーに送れませんでした。次回もう一度送ります。</p>}
           {confirmed.backup === 'failed' && <p className="small muted">自動バックアップに失敗しました。次回もう一度行います。</p>}
           <button className="btn-primary" onClick={() => setSheet(null)}>
-            閉じる
-          </button>
-        </Sheet>
-      )}
-      {sheet === 'measure' && <MeasureSheet date={date} tracks={numberTracks} onClose={() => setSheet(null)} onSaved={(m) => setToast({ message: m })} />}
-      {sheet === 'memo' && (
-        <Sheet onClose={() => setSheet(null)} label="メモ箱に入れる">
-          <span style={{ fontSize: 18, fontWeight: 700 }}>メモ箱に入れる</span>
-          <span className="sub">思いついたことを1行で。整えるのは「取り組み」タブのメモ箱で、あとからで大丈夫です。</span>
-          <MemoInput
-            autoFocus
-            onAdded={() => {
-              setSheet(null);
-              setToast({ message: 'メモ箱に入れました' });
-            }}
-          />
-          <button className="btn-ghost" onClick={() => setSheet(null)}>
             閉じる
           </button>
         </Sheet>
@@ -728,131 +752,6 @@ function FirstStepSheet({
   );
 }
 
-/** その日の固定：いつもの固定を外す・戻す、この日だけの予定を足す、休日として扱う */
-function FixedSheet({
-  date,
-  plan,
-  routines,
-  source,
-  onClose,
-}: {
-  date: string;
-  plan?: Plan;
-  routines: import('../lib/types').Routine[];
-  source: Plan['source'];
-  onClose: () => void;
-}) {
-  const wd = plan?.holiday ? 0 : weekday(date);
-  const edits = plan?.fixedEdits ?? {};
-  const [title, setTitle] = useState('');
-  const [start, setStart] = useState('10:00');
-  const [end, setEnd] = useState(11 * 60);
-  return (
-    <Sheet onClose={onClose} label="この日の固定">
-      <span style={{ fontSize: 16, fontWeight: 700 }}>{formatLifeDateJa(date)}の固定</span>
-      {routines.filter((r) => r.days.includes(wd)).length === 0 && (
-        <p className="sub" style={{ margin: 0 }}>
-          この曜日のいつもの固定はありません。設定タブの「いつもの固定」で決められます。
-        </p>
-      )}
-      {routines
-        .filter((r) => r.days.includes(wd))
-        .map((r) => {
-          const e = edits[r.id];
-          const removed = e === 'removed';
-          const moved = e && e !== 'removed' ? e : null;
-          return (
-            <div key={r.id} className="card-tight row" style={{ flexDirection: 'row', justifyContent: 'space-between', opacity: removed ? 0.7 : 1 }}>
-              <div className="stack" style={{ gap: 0 }}>
-                <b>{r.title}</b>
-                <span className="small muted mono">
-                  {formatMinute(moved ? moved.start : r.start)}–{formatMinute((moved ? moved.start : r.start) + (moved ? moved.min : r.min))}・
-                  {removed ? 'この日は外している' : moved ? 'この日だけ時間を変えている' : 'いつもどおり'}
-                </span>
-              </div>
-              <button className="btn" style={{ minHeight: 36 }} onClick={() => setFixedEdit(date, r.id, removed || moved ? undefined : 'removed', source)}>
-                {removed ? '戻す' : moved ? 'いつもに戻す' : '外す'}
-              </button>
-            </div>
-          );
-        })}
-      {(plan?.extraFixed ?? []).map((x) => (
-        <div key={x.id} className="card-tight row" style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <div className="stack" style={{ gap: 0 }}>
-            <b>{x.title}</b>
-            <span className="small muted mono">
-              {x.allDay ? '終日' : `${formatMinute(x.start)}–${formatEnd(x.start + x.min)}`}・この日だけ
-            </span>
-          </div>
-          <button className="btn" style={{ minHeight: 36 }} onClick={() => removeExtraFixed(date, x.id)}>
-            消す
-          </button>
-        </div>
-      ))}
-      <div className="card" style={{ gap: 8 }}>
-        <span className="label">この日だけの予定を足す</span>
-        <input className="input" value={title} placeholder="例：歯医者" onChange={(e) => setTitle(e.target.value)} />
-        <div className="row">
-          <TimeSelect
-            label="開始"
-            value={start}
-            onChange={(v) => {
-              setStart(v);
-              if (end < toMin(v) + 30) setEnd(toMin(v) + 60);
-            }}
-          />
-          <span className="small muted">〜</span>
-          <EndSelect start={toMin(start)} value={end} onChange={setEnd} />
-        </div>
-        <button
-          className="btn"
-          disabled={!title.trim()}
-          onClick={async () => {
-            await addExtraFixed(date, title.trim(), toMin(start), Math.max(30, end - toMin(start)), source);
-            setTitle('');
-          }}
-        >
-          足す
-        </button>
-      </div>
-      <button className="btn" onClick={() => setHoliday(date, !plan?.holiday, source)}>
-        {plan?.holiday ? 'この日を平日に戻す' : 'この日は休日として扱う（祝日・有休）'}
-      </button>
-      <button className="btn-primary" onClick={onClose}>
-        閉じる
-      </button>
-    </Sheet>
-  );
-}
-
-function QuickLink({
-  onQuick,
-  onMemo,
-  onMeasure,
-  onReflect,
-  reflectDot,
-}: {
-  onQuick: () => void;
-  onMemo: () => void;
-  onMeasure?: () => void;
-  onReflect?: () => void;
-  reflectDot?: boolean;
-}) {
-  const n = 2 + (onMeasure ? 1 : 0) + (onReflect ? 1 : 0);
-  return (
-    <div className="ghosts" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
-      <button onClick={onQuick}>＋ その場の5分</button>
-      <button onClick={onMemo}>＋ メモ</button>
-      {onMeasure && <button onClick={onMeasure}>＋ 測る</button>}
-      {onReflect && (
-        <button className={reflectDot ? 'has-dot' : undefined} aria-label={reflectDot ? '振り返り（昨日の答え合わせが残っています）' : undefined} onClick={onReflect}>
-          振り返り
-        </button>
-      )}
-    </div>
-  );
-}
-
 /** 左の固定の列をタップしたとき：その時刻で「この日だけの予定」を足す（2026-11-09） */
 function AddFixedSheet({ date, start, onAdd, onClose }: { date: string; start: number; onAdd: (title: string, start: number, min: number) => void; onClose: () => void }) {
   const [title, setTitle] = useState('');
@@ -890,9 +789,9 @@ function AddFixedSheet({ date, start, onAdd, onClose }: { date: string; start: n
 function QuickSheet({ onStart, onClose }: { onStart: (title: string) => void; onClose: () => void }) {
   const [title, setTitle] = useState('');
   return (
-    <Sheet onClose={onClose} label="その場の5分">
-      <span style={{ fontSize: 18, fontWeight: 700 }}>その場の5分</span>
-      <span className="sub">計画にないこと（仕事など）を、とりあえず5分だけ始めます。回数だけ記録し、取り組みの時間には入れません。</span>
+    <Sheet onClose={onClose} label="計画にないことを5分だけ">
+      <span style={{ fontSize: 18, fontWeight: 700 }}>計画にないことを5分だけ</span>
+      <span className="sub">仕事でも家のことでも、とりあえず5分だけ始めます。カレンダーに小さな印が付き、回数だけ記録します（取り組みの時間には入れません）。</span>
       <label className="field">
         <span>何をする？</span>
         <input className="input" value={title} placeholder="例：見積書の下書き" onChange={(e) => setTitle(e.target.value)} />

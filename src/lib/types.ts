@@ -120,9 +120,10 @@ export interface StartSession {
   lifeDate: string;
   /** 始めた実時刻 */
   startedAt: string;
-  /** 終えた実時刻（済・ここまで） */
+  /** 終えた実時刻（済・ここまで・自動で終えた時刻） */
   endedAt?: string;
-  outcome?: 'done' | 'stopped';
+  /** auto：押さずに自動で終えた（次を始めた・予定の終わりを過ぎた・その場の5分は30分。2026-11-09）。7マスでは「始めた」と同じ */
+  outcome?: 'done' | 'stopped' | 'auto';
   /** ここまでにした理由（任意のワンタップ） */
   reason?: string;
   title: string;

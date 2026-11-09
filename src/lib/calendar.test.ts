@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findGaps, fixedBlocksFor, formatDuration, itemsByStart, layoutColumns, nextItem, placeStart, weeklyDoneMinutes, withStarts } from './calendar';
+import { findGaps, fixedBlocksFor, formatDuration, itemsByStart, layoutColumns, nextItem, placeStart, removedFixedFor, weeklyDoneMinutes, withStarts } from './calendar';
 import type { Plan, PlanItem, Routine } from './types';
 
 const item = (id: string, minutes: number, extra: Partial<PlanItem> = {}): PlanItem => ({
@@ -89,5 +89,13 @@ describe('カレンダーの計算', () => {
   });
   it('長さの表示', () => {
     expect([formatDuration(30), formatDuration(60), formatDuration(105)]).toEqual(['30分', '1時間', '1時間45分']);
+  });
+});
+
+describe('removedFixedFor', () => {
+  it('その日だけ外した、いつもの固定を返す', () => {
+    const p = plan('2026-11-09', [], { fixedEdits: { dinner: 'removed' } });
+    expect(removedFixedFor('2026-11-09', routines, p).map((r) => r.title)).toEqual(['夕食']);
+    expect(fixedBlocksFor('2026-11-09', routines, p).map((b) => b.title)).toEqual(['仕事']);
   });
 });
