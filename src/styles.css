@@ -304,3 +304,11 @@ button.cell { padding: 0; background-color: transparent; cursor: pointer; }
 .ghosts button { min-height: 32px; border: 0; background: transparent; color: var(--muted); font-size: 12px; white-space: nowrap; padding: 0 2px; }
 .cal-fab { position: fixed; right: max(40px, calc(env(safe-area-inset-right) + 40px)); z-index: 16; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--next); background: var(--surface); color: var(--warn); font-weight: 700; font-size: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
 .cal-title .row-scroll { flex: 1; justify-content: flex-start; }
+/* 今日・明日・週をそろえる（2026-11-09）：見出し・下の操作エリアの形を同じに、中身だけ横にスライド */
+.pane { touch-action: pan-y; will-change: transform; }
+.seg-mini { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.seg-mini button { min-height: 26px; border-radius: 8px; font-size: 11px; font-weight: 500; }
+.alloc-row-dock { min-height: 46px; align-items: center; }
+.week-chip.h { background: #e3f2f0; }
+.week-chip.p { background: #fdebdf; }
+.cal-dock .btn-primary, .cal-dock .btn-next, .cal-dock .cal-two .btn, .cal-dock > .stack > .btn, .cal-dock > .btn { min-height: 46px; }

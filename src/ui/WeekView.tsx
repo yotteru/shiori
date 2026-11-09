@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { useLive } from '../hooks';
-import { DEFAULT_VIEW, fixedBlocksFor, formatDuration, formatMinute } from '../lib/calendar';
+import { fixedBlocksFor, formatDuration, formatMinute } from '../lib/calendar';
 import { addAllDayFixed, addExtraFixed, removeExtraFixed, setHoliday, toggleIntent } from '../lib/calendarActions';
-import { db, getMeta } from '../lib/db';
 import { formatLifeDateJa, weekday } from '../lib/lifeDate';
 import type { Plan, Track } from '../lib/types';
-import { allDayEvents, allocation, defaultWeekOffset, freeMinutes, isHoliday, weekDates } from '../lib/week';
+import { allDayEvents, allocation, freeMinutes, isHoliday } from '../lib/week';
 import { EndSelect, formatEnd, Sheet } from './common';
 
 // しおりタブの「週」（2026-11-09。要件メモ「週の見通しと振り返り」）。
@@ -15,7 +13,12 @@ const WD = ['月', '火', '水', '木', '金', '土', '日'];
 const PX_PER_HOUR = 16;
 const MODE_KEY = 'shiori-week-mode';
 
-function loadMode(): 'cal' | 'list' {
+
+const dayNum = (d: string) => Number(d.slice(8, 10));
+const md = (d: string) => `${Number(d.slice(5, 7))}月${dayNum(d)}日`;
+const hours = (min: number) => `${Math.round(min / 30) / 2}h`;
+
+export function loadWeekMode(): 'cal' | 'list' {
   try {
     return localStorage.getItem(MODE_KEY) === 'list' ? 'list' : 'cal';
   } catch {
@@ -23,107 +26,69 @@ function loadMode(): 'cal' | 'list' {
   }
 }
 
-const dayNum = (d: string) => Number(d.slice(8, 10));
-const md = (d: string) => `${Number(d.slice(5, 7))}月${dayNum(d)}日`;
-const hours = (min: number) => `${Math.round(min / 30) / 2}h`;
+export function saveWeekMode(m: 'cal' | 'list') {
+  try {
+    localStorage.setItem(MODE_KEY, m);
+  } catch {
+    // 覚えられなくても表示はできる
+  }
+}
 
-export function WeekView({ today, hourJst, footer, swipeRef }: { today: string; hourJst: number; footer: React.ReactNode; swipeRef: (el: HTMLDivElement | null) => void }) {
-  const [offset, setOffset] = useState(() => defaultWeekOffset(today, hourJst));
-  const [mode, setModeState] = useState<'cal' | 'list'>(loadMode);
-  const [open, setOpen] = useState<string | null>(null);
-  const dates = weekDates(today, offset);
-  const data = useLive(
-    async () => ({
-      plans: await db.plans.where('lifeDate').between(dates[0], dates[6], true, true).toArray(),
-      routines: await db.routines.toArray(),
-      tracks: (await db.tracks.orderBy('createdAt').toArray()).filter((t) => !t.archivedAt && t.type !== 'number'),
-      view: (await getMeta()).calendarView ?? DEFAULT_VIEW,
-    }),
-    [dates[0]],
-  );
-  const setMode = (m: 'cal' | 'list') => {
-    setModeState(m);
-    try {
-      localStorage.setItem(MODE_KEY, m);
-    } catch {
-      // 覚えられなくても表示はできる
-    }
-  };
-  if (!data) return null;
-  const planOf = (d: string) => data.plans.find((p) => p.lifeDate === d);
-  const trackById = new Map(data.tracks.map((t) => [t.id, t]));
-  const alloc = allocation(data.plans, dates);
-  const label = offset === 0 ? '今週' : offset === 1 ? '来週' : offset === -1 ? '先週' : offset > 0 ? `${offset}週あと` : `${-offset}週まえ`;
+export function weekLabel(offset: number): string {
+  return offset === 0 ? '今週' : offset === 1 ? '来週' : offset === -1 ? '先週' : offset > 0 ? `${offset}週あと` : `${-offset}週まえ`;
+}
 
+export function weekTitle(dates: string[]): string {
+  return `${md(dates[0])}〜${dayNum(dates[6])}日`;
+}
+
+/** 下の操作エリアに出す「この週にやる日」（札を付けた曜日）。札がなければ空 */
+export function allocationItems(plans: Plan[], dates: string[], tracks: Track[]) {
+  const alloc = allocation(plans, dates);
+  return tracks
+    .map((t) => ({ track: t, days: (alloc[t.id] ?? []).map((on, i) => (on ? WD[i] : '')).filter(Boolean) }))
+    .filter((x) => x.days.length > 0);
+}
+
+/**
+ * 週の画面の中身（2026-11-09 に作り直し）。見出しと下の操作エリアは しおりタブ（DayView）が今日・明日と同じ形で持つ。
+ * データは DayView が読んだものを受け取る（切り替えのたびに読み直さない）
+ */
+export function WeekBody({
+  dates,
+  today,
+  plans,
+  routines,
+  tracks,
+  view,
+  mode,
+  onOpen,
+}: {
+  dates: string[];
+  today: string;
+  plans: Plan[];
+  routines: Parameters<typeof fixedBlocksFor>[1];
+  tracks: Track[];
+  view: { start: number; end: number };
+  mode: 'cal' | 'list';
+  onOpen: (d: string) => void;
+}) {
+  const planOf = (d: string) => plans.find((p) => p.lifeDate === d);
+  const trackById = new Map(tracks.map((t) => [t.id, t]));
   return (
-    <>
-    <div ref={swipeRef} className="stack" style={{ gap: 16, touchAction: 'pan-y' }}>
-      <div className="weekbar">
-        <button className="btn-icon" aria-label="前の週" disabled={offset <= -4} onClick={() => setOffset(offset - 1)}>
-          ‹
-        </button>
-        <div className="stack" style={{ gap: 0, alignItems: 'center' }}>
-          <span className="small muted">{label}</span>
-          <h1 className="title" style={{ fontSize: 20 }}>
-            {md(dates[0])}〜{dayNum(dates[6])}日
-          </h1>
-        </div>
-        <button className="btn-icon" aria-label="次の週" disabled={offset >= 4} onClick={() => setOffset(offset + 1)}>
-          ›
-        </button>
-      </div>
-
-      {data.tracks.length > 0 && (
-        <div className="card" aria-label="この週にやる日">
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span className="label">この週にやる日</span>
-            <span className="small muted">札を付けた日</span>
-          </div>
-          <div className="alloc">
-            {data.tracks.map((t) => {
-              const row = alloc[t.id] ?? Array(7).fill(false);
-              const n = row.filter(Boolean).length;
-              return (
-                <div key={t.id} className="alloc-row">
-                  <span className="nm">
-                    {t.name}
-                    {n ? `（${n}日）` : ''}
-                  </span>
-                  <span className="days">
-                    {row.map((on, i) => (
-                      <span key={i} className={`d${on ? (t.type === 'habit' ? ' on h' : ' on p') : ''}`}>
-                        {WD[i]}
-                      </span>
-                    ))}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="seg seg-small" role="group" aria-label="週の表示">
-        <button aria-pressed={mode === 'cal'} onClick={() => setMode('cal')}>
-          カレンダーで見る
-        </button>
-        <button aria-pressed={mode === 'list'} onClick={() => setMode('list')}>
-          リストで見る
-        </button>
-      </div>
-
+    <div className="stack" style={{ gap: 12 }}>
       {mode === 'cal' ? (
-        <WeekCalendar dates={dates} today={today} planOf={planOf} routines={data.routines} view={data.view} trackById={trackById} onOpen={setOpen} />
+        <WeekCalendar dates={dates} today={today} planOf={planOf} routines={routines} view={view} trackById={trackById} onOpen={onOpen} />
       ) : (
         <div className="stack">
           {dates.map((d, i) => {
             const p = planOf(d);
             const hol = isHoliday(d, p);
-            const fixed = fixedBlocksFor(d, data.routines, p);
+            const fixed = fixedBlocksFor(d, routines, p);
             const allDay = allDayEvents(p);
-            const free = freeMinutes(d, data.routines, p, data.view);
+            const free = freeMinutes(d, routines, p, view);
             return (
-              <button key={d} className={`wk-day${d < today ? ' past' : ''}${d === today ? ' today' : ''}`} onClick={() => setOpen(d)} aria-label={`${formatLifeDateJa(d)}を開く`}>
+              <button key={d} className={`wk-day${d < today ? ' past' : ''}${d === today ? ' today' : ''}`} onClick={() => onOpen(d)} aria-label={`${formatLifeDateJa(d)}を開く`}>
                 <span className="dt">
                   <b className="mono">{dayNum(d)}</b>
                   <span className={hol ? 'hol' : ''}>
@@ -160,12 +125,7 @@ export function WeekView({ today, hourJst, footer, swipeRef }: { today: string; 
         </div>
       )}
       <span className="small muted">日をタップすると、予定・休日・札を決められます。時刻つきで行き先を置くのは、今までどおり前の晩（明日の画面）です。</span>
-
-      <div style={{ height: 70 }} aria-hidden="true" />
     </div>
-      {open && <DaySheet date={open} plan={planOf(open)} routines={data.routines} tracks={data.tracks} onClose={() => setOpen(null)} />}
-      <div className="cal-dock">{footer}</div>
-    </>
   );
 }
 
@@ -284,7 +244,7 @@ function WeekCalendar({
 }
 
 /** 日のシート：休日・その日だけの予定・やることの札 */
-function DaySheet({ date, plan, routines, tracks, onClose }: { date: string; plan?: Plan; routines: Parameters<typeof fixedBlocksFor>[1]; tracks: Track[]; onClose: () => void }) {
+export function DaySheet({ date, plan, routines, tracks, onClose }: { date: string; plan?: Plan; routines: Parameters<typeof fixedBlocksFor>[1]; tracks: Track[]; onClose: () => void }) {
   const [title, setTitle] = useState('');
   const [allDay, setAllDay] = useState(false);
   const [start, setStart] = useState(10 * 60);
