@@ -32,6 +32,10 @@ export function StartReminderSettingsCard() {
         <input type="checkbox" checked={s.enabled} onChange={(e) => void save({ enabled: e.target.checked })} />
         <span>開始時刻に知らせる</span>
       </label>
+      <label className="row" style={{ gap: 8, alignItems: 'center' }}>
+        <input type="checkbox" checked={!!meta.weekReminder} onChange={(e) => void updateMeta({ weekReminder: e.target.checked })} />
+        <span>日曜の21時に「来週の見通し」を知らせる</span>
+      </label>
 
       {s.enabled && (
         <>

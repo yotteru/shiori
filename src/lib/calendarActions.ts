@@ -125,6 +125,29 @@ export async function addExtraFixed(lifeDate: string, title: string, start: numb
   return id;
 }
 
+/** 終日の予定（出張など）を足す */
+export async function addAllDayFixed(lifeDate: string, title: string, database: ShioriDB = db) {
+  const id = newId();
+  await editPlan(lifeDate, 'night', (p) => ({ ...p, extraFixed: [...(p.extraFixed ?? []), { id, title, start: 0, min: 1440, allDay: true }] }), database);
+  return id;
+}
+
+/** この日にやることの札を付ける・外す（週の見通し。時刻は決めない） */
+export async function toggleIntent(lifeDate: string, trackId: string, database: ShioriDB = db) {
+  await editPlan(
+    lifeDate,
+    'night',
+    (p) => {
+      const cur = p.intents ?? [];
+      const next = cur.includes(trackId) ? cur.filter((x) => x !== trackId) : [...cur, trackId];
+      const out: Plan = { ...p, intents: next };
+      if (!next.length) delete out.intents;
+      return out;
+    },
+    database,
+  );
+}
+
 export async function moveExtraFixed(lifeDate: string, id: string, start: number, min: number, database: ShioriDB = db) {
   await editPlan(lifeDate, 'night', (p) => ({ ...p, extraFixed: (p.extraFixed ?? []).map((x) => (x.id === id ? { ...x, start, min } : x)) }), database);
 }
