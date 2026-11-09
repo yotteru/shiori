@@ -105,6 +105,8 @@ export function DayView() {
 
   const view = data?.meta.calendarView ?? DEFAULT_VIEW;
   const nowMin = minutesIntoLifeDay(now) + 4 * 60;
+  // 0時〜4時はしおりの上ではまだ前の日（25時など）。その間、実際の時刻は「明日」のカレンダーの 0:00〜4:00 にあたる（2026-11-09）
+  const nowOnDay = day === 'today' ? nowMin : day === 'tomorrow' && nowMin >= 24 * 60 ? nowMin - 24 * 60 : undefined;
 
   const scrollToMinute = (m: number, smooth = false) => {
     const grid = document.querySelector('.cal-grid');
@@ -166,8 +168,8 @@ export function DayView() {
       cue: i.cue,
     })),
   ];
-  // 今日は「いま」より後だけ。明日は表示する時間帯の全体
-  const gaps = findGaps(blocks, { from: day === 'today' ? Math.max(view.start * 60, Math.ceil((nowMin + 1) / 15) * 15) : view.start * 60, to: view.end * 60 });
+  // 「いま」の線がある日（今日、0時〜4時の明日）は、いまより後の空きだけ。それ以外は表示する時間帯の全体
+  const gaps = findGaps(blocks, { from: nowOnDay !== undefined ? Math.max(view.start * 60, Math.ceil((nowOnDay + 1) / 15) * 15) : view.start * 60, to: view.end * 60 });
 
   // 候補（今日は前回の続きが新しい順）
   const all = buildCandidates({ today, tracks: data.tracks, steps: data.steps, leftovers: data.leftovers });
@@ -347,7 +349,7 @@ export function DayView() {
         selectedId={sel}
         holding={!!heldCand}
         gapStart={gap?.start ?? null}
-        now={day === 'today' ? nowMin : undefined}
+        now={nowOnDay}
         onSelect={(id) => {
           setSel(id);
           setGap(null);
