@@ -27,7 +27,7 @@ const dayNum = (d: string) => Number(d.slice(8, 10));
 const md = (d: string) => `${Number(d.slice(5, 7))}月${dayNum(d)}日`;
 const hours = (min: number) => `${Math.round(min / 30) / 2}h`;
 
-export function WeekView({ today, hourJst, header }: { today: string; hourJst: number; header: React.ReactNode }) {
+export function WeekView({ today, hourJst, footer, swipeRef }: { today: string; hourJst: number; footer: React.ReactNode; swipeRef: (el: HTMLDivElement | null) => void }) {
   const [offset, setOffset] = useState(() => defaultWeekOffset(today, hourJst));
   const [mode, setModeState] = useState<'cal' | 'list'>(loadMode);
   const [open, setOpen] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export function WeekView({ today, hourJst, header }: { today: string; hourJst: n
 
   return (
     <>
-      {header}
+    <div ref={swipeRef} className="stack" style={{ gap: 16, touchAction: 'pan-y' }}>
       <div className="weekbar">
         <button className="btn-icon" aria-label="前の週" disabled={offset <= -4} onClick={() => setOffset(offset - 1)}>
           ‹
@@ -161,7 +161,10 @@ export function WeekView({ today, hourJst, header }: { today: string; hourJst: n
       )}
       <span className="small muted">日をタップすると、予定・休日・札を決められます。時刻つきで行き先を置くのは、今までどおり前の晩（明日の画面）です。</span>
 
+      <div style={{ height: 70 }} aria-hidden="true" />
+    </div>
       {open && <DaySheet date={open} plan={planOf(open)} routines={data.routines} tracks={data.tracks} onClose={() => setOpen(null)} />}
+      <div className="cal-dock">{footer}</div>
     </>
   );
 }
