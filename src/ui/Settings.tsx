@@ -21,7 +21,8 @@ export function Settings({ sections }: { sections?: ReactNode }) {
           </button>
         </div>
       )}
-      <DebugNowCard />
+      {/* 開発用の日時の上書きは、開発用のサーバー（npm run dev）で開いたときだけ出す（2026-11-09） */}
+      {import.meta.env.DEV && <DebugNowCard />}
     </>
   );
 }
