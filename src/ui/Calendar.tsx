@@ -34,6 +34,7 @@ export function Calendar({
   onPlace,
   onGap,
   onCommit,
+  onFixedTap,
   topInset,
   bottomInset,
 }: {
@@ -48,6 +49,8 @@ export function Calendar({
   onPlace: (minute: number) => void;
   onGap: (gap: Gap | null) => void;
   onCommit: (id: string, start: number, min: number) => void;
+  /** 左の固定の列の空いた所をタップ（その時刻で「この日だけの予定」を足す。2026-11-09） */
+  onFixedTap?: (minute: number) => void;
   topInset: () => number;
   bottomInset: () => number;
 }) {
@@ -136,7 +139,11 @@ export function Calendar({
   const tapGrid = (e: React.MouseEvent) => {
     if (justDragged.current) return;
     if (holding) onPlace(minuteAt(e.clientY) - 7);
-    else {
+    else if (onFixedTap && !selectedId && e.clientX - gridRef.current!.getBoundingClientRect().left < FIXED_W) {
+      // タップした所を含む15分の始まりにそろえ、表示の時間帯に収める
+      const m = Math.floor(minuteAt(e.clientY) / 15) * 15;
+      onFixedTap(Math.max(st, Math.min(en - 30, m)));
+    } else {
       onSelect(null);
       onGap(null);
     }
