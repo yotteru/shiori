@@ -60,6 +60,12 @@ export function isEvening(at: Date): boolean {
   return minutesIntoLifeDay(at) >= (20 - DAY_START_HOUR) * 60;
 }
 
+/** 生活日のカレンダー上の時刻（その日 0:00 からの分。25時 = 1500 など）を実時刻の ISO にする */
+export function lifeMinuteToIso(date: string, minute: number): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d) + minute * 60000 - JST_OFFSET_MS).toISOString();
+}
+
 /** 曜日（0 = 日曜）。'YYYY-MM-DD' から */
 export function weekday(date: string): number {
   const [y, m, d] = date.split('-').map(Number);

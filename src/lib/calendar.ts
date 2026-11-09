@@ -93,6 +93,16 @@ export function fixedBlocksFor(lifeDate: string, routines: Routine[], plan?: Pla
   return [...fromRoutines, ...extra].sort((a, b) => a.start - b.start);
 }
 
+/** その日だけ外している、いつもの固定（カレンダーに点線で残し、タップで戻す。2026-11-09） */
+export function removedFixedFor(lifeDate: string, routines: Routine[], plan?: Plan): { routineId: string; title: string; start: number; min: number }[] {
+  const wd = effectiveWeekday(lifeDate, plan);
+  const edits = plan?.fixedEdits ?? {};
+  return routines
+    .filter((r) => r.days.includes(wd) && edits[r.id] === 'removed')
+    .map((r) => ({ routineId: r.id, title: r.title, start: r.start, min: r.min }))
+    .sort((a, b) => a.start - b.start);
+}
+
 /** 重なった予定を横に並べる：各予定の列番号と、その予定と重なる範囲の列数 */
 export function layoutColumns<T extends { id: string; start: number; min: number }>(blocks: T[]): Record<string, { col: number; cols: number }> {
   const sorted = blocks.slice().sort((a, b) => a.start - b.start || b.min - a.min);
