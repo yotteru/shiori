@@ -316,3 +316,30 @@ button.cell { padding: 0; background-color: transparent; cursor: pointer; }
 .has-dot { position: relative; }
 .has-dot::after { content: ''; position: absolute; top: 6px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--next); }
 .cal-title h1 { font-variant-numeric: tabular-nums; }
+/* 下の操作エリアの見直し（2026-11-09）：見出しの2行目に今週の合計、細いレール、週の切り替えを下へ */
+.cal-day-btn { display: flex; align-items: baseline; gap: 6px; border: 0; background: transparent; padding: 0; color: inherit; min-width: 0; }
+.cal-day-btn span { font-size: 11px; color: var(--muted); }
+.cal-allday { font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cal-title { justify-content: flex-start; }
+.cal-sum { min-height: 22px; align-items: center; }
+.seg-rail { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding-block: 6px; }
+.seg-rail::before { content: ''; position: absolute; inset: 6px 0; background: var(--track); border-radius: 999px; }
+.seg-rail .knob { position: absolute; top: 8px; bottom: 8px; left: 2px; width: calc((100% - 4px) / 3); background: var(--surface); border-radius: 999px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14); transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.seg-rail button { position: relative; z-index: 1; height: 28px; border: 0; background: transparent; font-size: 12px; color: var(--muted); }
+.seg-rail button[aria-pressed='true'] { color: var(--text); font-weight: 700; }
+.seg-rail button::after { content: ''; position: absolute; inset: -6px 0; } /* 押せる範囲は上下の余白まで */
+@media (prefers-reduced-motion: reduce) { .seg-rail .knob { transition: none; } }
+.week-nav { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.week-nav .btn { padding: 0 10px; white-space: nowrap; font-size: 13px; min-height: 46px; }
+.seg-pill { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-width: 0; background: var(--track); border-radius: 10px; padding: 3px; height: 46px; }
+.seg-pill button { min-width: 0; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 0; background: transparent; border-radius: 8px; font-size: 12px; color: var(--muted); }
+.seg-pill button[aria-pressed='true'] { background: var(--surface); color: var(--text); font-weight: 700; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.dock-links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-height: 32px; }
+.dock-links button { min-height: 32px; border: 0; background: transparent; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.dock-links .other { color: var(--warn); font-weight: 700; }
+.blk.fixed-off { background: transparent; border: 1.5px dashed var(--line); color: var(--muted); justify-content: flex-start; padding-top: 3px; text-align: left; font: inherit; }
+.blk.fixed-off .tt { font-weight: 500; }
+.blk.fixed-off .tm { font-family: var(--font); }
+.cal-mark { position: absolute; right: 4px; transform: translateY(-50%); z-index: 5; pointer-events: none; display: inline-flex; align-items: center; gap: 3px; max-width: 45%; font-size: 10px; padding: 1px 7px 1px 5px; border-radius: 999px; background: var(--surface); border: 1px dashed var(--muted); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-mark i { font-style: normal; color: var(--next); font-size: 9px; }
+.cal-mark.live { border-style: solid; border-color: var(--next); color: var(--text); }

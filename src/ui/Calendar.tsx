@@ -35,6 +35,9 @@ export function Calendar({
   onGap,
   onCommit,
   onFixedTap,
+  removed = [],
+  onRestoreFixed,
+  marks = [],
   topInset,
   bottomInset,
 }: {
@@ -51,6 +54,11 @@ export function Calendar({
   onCommit: (id: string, start: number, min: number) => void;
   /** 左の固定の列の空いた所をタップ（その時刻で「この日だけの予定」を足す。2026-11-09） */
   onFixedTap?: (minute: number) => void;
+  /** その日だけ外した、いつもの固定。点線で残し、タップで戻す（2026-11-09） */
+  removed?: { routineId: string; title: string; start: number; min: number }[];
+  onRestoreFixed?: (routineId: string, title: string) => void;
+  /** その場の5分で始めた印（予定の札にはしない。2026-11-09） */
+  marks?: { id: string; minute: number; title: string; live: boolean }[];
   topInset: () => number;
   bottomInset: () => number;
 }) {
@@ -201,6 +209,22 @@ export function Calendar({
             {g.len % 60 ? `${g.len % 60}分` : ''}
           </button>
         ))}
+        {removed.map((r) => (
+          <button
+            key={r.routineId}
+            className="blk fixed-off"
+            aria-label={`${r.title}（この日は外している）を戻す`}
+            style={{ left: '3px', width: `${FIXED_W - 6}px`, top: (r.start - st) * PX_PER_MIN, height: Math.max(30, Math.min(r.min, en - r.start)) * PX_PER_MIN - 2 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (holding) onPlace(minuteAt(e.clientY) - 7);
+              else onRestoreFixed?.(r.routineId, r.title);
+            }}
+          >
+            <span className="tt">{r.title}</span>
+            <span className="tm">戻す</span>
+          </button>
+        ))}
         {blocks.map((b) => {
           const isSel = b.id === selectedId;
           const time = b.tone === 'fixed' ? `${formatMinute(b.start)}〜` : `${formatMinute(b.start)}–${formatMinute(b.start + b.min)}・${b.min}分`;
@@ -253,6 +277,14 @@ export function Calendar({
               </span>
             );
           })}
+        {marks
+          .filter((m) => m.minute >= st && m.minute <= en)
+          .map((m) => (
+            <span key={m.id} className={`cal-mark${m.live ? ' live' : ''}`} style={{ top: (m.minute - st) * PX_PER_MIN }}>
+              <i>▶</i>
+              {m.title}
+            </span>
+          ))}
         {now !== undefined && now > st && now < en && (
           <div className="cal-now" style={{ top: (now - st) * PX_PER_MIN }}>
             <i />

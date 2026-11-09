@@ -260,7 +260,7 @@ function TrackDetail({ track, steps, onBack }: { track: Track; steps: Step[]; on
               }}
             />
           </label>
-          <span className="small muted">記録は、しおりタブの「＋ 測る」から入れます。グラフは記録タブに出ます。</span>
+          <span className="small muted">記録は、記録タブのグラフの「＋ 測る」から入れます。</span>
         </div>
       ) : track.type === 'habit' ? (
         <div className="card">
