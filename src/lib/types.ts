@@ -95,6 +95,12 @@ export interface Routine {
   min: number;
   /** 0 = 日曜 … 6 = 土曜 */
   days: number[];
+  /** 記録する（予定どおりやったとみなして、その日の時刻と長さを残す。2026-11-10） */
+  record?: boolean;
+  /** 記録を始めた生活日（それより前は数えない） */
+  recordFrom?: string;
+  /** つないだ習慣型の取り組み。つなぐと、その取り組みの記録として数える */
+  trackId?: string;
   createdAt: string;
   updatedAt?: string;
 }
