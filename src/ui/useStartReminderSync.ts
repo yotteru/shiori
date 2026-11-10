@@ -3,7 +3,7 @@ import { useLive, useNow } from '../hooks';
 import { db, getMeta } from '../lib/db';
 import { addDays, lifeDate } from '../lib/lifeDate';
 import { setStartReminders } from '../lib/push';
-import { buildStartReminders, pushStartReminders, startReminderSettings } from '../lib/startReminders';
+import { buildStartReminders, endReminderSettings, pushStartReminders, startReminderSettings } from '../lib/startReminders';
 
 /** 予定の開始時刻の通知を、今日・明日の計画に合わせてサーバーへ送り直す（計画を動かす・済をつける・設定を変えるたび） */
 export function useStartReminderSync() {
@@ -18,7 +18,7 @@ export function useStartReminderSync() {
     [today],
   );
   const sig = data
-    ? JSON.stringify(buildStartReminders(data.plans, today, startReminderSettings(data.meta), data.starts, Date.now(), !!data.meta.weekReminder))
+    ? JSON.stringify(buildStartReminders(data.plans, today, startReminderSettings(data.meta), data.starts, Date.now(), !!data.meta.weekReminder, endReminderSettings(data.meta)))
     : null;
   useEffect(() => {
     if (sig === null) return;

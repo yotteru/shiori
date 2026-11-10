@@ -20,12 +20,23 @@ export const DEFAULT_START_REMINDER: StartReminderSettings = {
 
 export const LEAD_CHOICES = [0, 5, 10, 15, 30];
 
+export type EndReminderSettings = NonNullable<Meta['endReminder']>;
+
+export const DEFAULT_END_REMINDER: EndReminderSettings = {
+  enabled: false,
+  template: '予定の終わりの時間です。済をつけますか',
+};
+
+export function endReminderSettings(meta?: Meta): EndReminderSettings {
+  return { ...DEFAULT_END_REMINDER, ...meta?.endReminder };
+}
+
 export function startReminderSettings(meta?: Meta): StartReminderSettings {
   return { ...DEFAULT_START_REMINDER, ...meta?.startReminder };
 }
 
-export function reminderBody(template: string, title: string): string {
-  const t = template.trim() || DEFAULT_START_REMINDER.template;
+export function reminderBody(template: string, title: string, fallback = DEFAULT_START_REMINDER.template): string {
+  const t = template.trim() || fallback;
   return t.split(NAME_TOKEN).join(title).slice(0, 200);
 }
 
@@ -53,6 +64,7 @@ export function buildStartReminders(
   sessions: StartSession[],
   nowMs: number,
   weekReminder = false,
+  end: EndReminderSettings = DEFAULT_END_REMINDER,
 ): ReminderItem[] {
   const out: ReminderItem[] = [];
   // 日曜の夜の「来週の見通し」（今日・明日のうち日曜の21時）
@@ -63,21 +75,40 @@ export function buildStartReminders(
       if (at > nowMs) out.push({ send_at: new Date(at).toISOString(), body: WEEK_REMINDER_BODY });
     }
   }
-  if (!settings.enabled) return out.sort((a, b) => a.send_at.localeCompare(b.send_at));
   const active = activeSession(sessions);
   for (const date of [today, addDays(today, 1)]) {
     const plan = plans.find((p) => p.lifeDate === date);
     if (!plan) continue;
     const items = itemsByStart(plan);
-    const targets = settings.target === 'first' ? items.slice(0, 1) : items;
-    for (const i of targets) {
-      if (i.status !== 'planned' || active?.planItemId === i.id) continue;
-      const at = startInstant(date, i.start - settings.leadMinutes);
-      if (at <= nowMs) continue;
-      out.push({ send_at: new Date(at).toISOString(), body: reminderBody(settings.template, i.title) });
+    // 終わる時刻（2026-11-10）を先に入れる（まとめたとき「○○の終わり／△△の時間」の順に読めるように）：済でも未でもない予定。始めている最中のものも知らせる
+    if (end.enabled) {
+      for (const i of items) {
+        if (i.status !== 'planned') continue;
+        const at = startInstant(date, i.start + i.minutes);
+        if (at <= nowMs) continue;
+        out.push({ send_at: new Date(at).toISOString(), body: reminderBody(end.template, i.title, DEFAULT_END_REMINDER.template) });
+      }
+    }
+    if (settings.enabled) {
+      const targets = settings.target === 'first' ? items.slice(0, 1) : items;
+      for (const i of targets) {
+        if (i.status !== 'planned' || active?.planItemId === i.id) continue;
+        const at = startInstant(date, i.start - settings.leadMinutes);
+        if (at <= nowMs) continue;
+        out.push({ send_at: new Date(at).toISOString(), body: reminderBody(settings.template, i.title) });
+      }
     }
   }
-  return out.sort((a, b) => a.send_at.localeCompare(b.send_at)).slice(0, 50);
+  return mergeSameTime(out).slice(0, 50);
+}
+
+/** 同じ時刻の知らせは1通にまとめる（終わりと次の始まりが重なるときなど。2026-11-10） */
+export function mergeSameTime(items: ReminderItem[]): ReminderItem[] {
+  const byTime = new Map<string, string[]>();
+  for (const x of items) byTime.set(x.send_at, [...(byTime.get(x.send_at) ?? []), x.body]);
+  return [...byTime.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([send_at, bodies]) => ({ send_at, body: [...new Set(bodies)].join('／').slice(0, 200) }));
 }
 
 // ---- サーバーへ渡す（同じ内容は送り直さない） ----

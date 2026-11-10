@@ -538,11 +538,16 @@ export function DayView() {
             </div>
           ) : next ? (
             <div className="stack" style={{ gap: 4 }}>
-              {next.cue && (
-                <span className="small" style={{ textAlign: 'center' }}>
-                  <b>{next.cue}</b> → {next.firstStep || '始める'}
-                </span>
-              )}
+              {/* 2つのボタンがどの予定に対するものか、ひと目で分かるように（2026-11-10） */}
+              <span className="next-target">
+                次：<span className="mono">{formatMinute(next.start)}–{formatMinute(next.start + next.minutes)}</span> <b>{next.title}</b>
+                {next.cue && (
+                  <>
+                    {' '}
+                    <span className="muted">（{next.cue} → {next.firstStep || '始める'}）</span>
+                  </>
+                )}
+              </span>
               <div className="cal-two">
                 <button className="btn-next" onClick={() => void begin({ title: next.title, planItemId: next.id, trackId: next.trackId }, next.minutes)}>
                   5分だけ始める
