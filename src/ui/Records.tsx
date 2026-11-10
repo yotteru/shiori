@@ -2,11 +2,14 @@ import { Fragment, useEffect, useState } from 'react';
 import { useLive, useNow } from '../hooks';
 import { formatDuration } from '../lib/calendar';
 import { lastDoneByTrack } from '../lib/candidates';
-import { db } from '../lib/db';
+import { db, getMeta } from '../lib/db';
+import { DEFAULT_VIEW } from '../lib/calendar';
+import { GAP_LABEL_NAME, GAP_LABELS, gapBreakdown, labelByHour, pastGaps, weeklyGapBreakdown } from '../lib/gaps';
+import { minutesIntoLifeDay } from '../lib/lifeDate';
 import { addDays, lifeDate } from '../lib/lifeDate';
 import { weeklyHistory, weeklyStarts } from '../lib/records';
 import { daysSinceTouched } from '../lib/tracks';
-import type { ChangeNote, Journal, Measure, Plan, StartSession, Track } from '../lib/types';
+import type { ChangeNote, GapLabel, Journal, Measure, Plan, Routine, StartSession, Track } from '../lib/types';
 import { addChange, deleteChange, measureSeries, plannedNights, timeline, weekFeel } from '../lib/reflection';
 import { FEEL_LABEL } from './DoneSheet';
 import { MeasureSheet } from './MeasureSheet';
@@ -28,6 +31,8 @@ export function Records() {
       journals: await db.journals.toArray(),
       changes: await db.changes.toArray(),
       measures: await db.measures.toArray(),
+      routines: await db.routines.toArray(),
+      meta: await getMeta(),
     }),
     [],
   );
@@ -187,7 +192,19 @@ export function Records() {
         <NumberCard key={t.id} track={t} measures={data.measures.filter((m) => m.trackId === t.id)} today={today} />
       ))}
 
-      <Timeline today={today} tracks={allTracks} journals={data.journals} plans={data.plans} changes={data.changes} measures={data.measures} />
+      <GapRecords plans={data.plans} routines={data.routines} view={data.meta.calendarView ?? DEFAULT_VIEW} today={today} nowMin={minutesIntoLifeDay(now) + 4 * 60} />
+
+      <Timeline
+        today={today}
+        tracks={allTracks}
+        journals={data.journals}
+        plans={data.plans}
+        changes={data.changes}
+        measures={data.measures}
+        routines={data.routines}
+        view={data.meta.calendarView ?? DEFAULT_VIEW}
+        nowMin={minutesIntoLifeDay(now) + 4 * 60}
+      />
 
       {tip && (
         <div className="viz-tip" role="status" style={{ left: Math.max(8, Math.min(window.innerWidth - 200, tip.x - 80)), top: Math.max(8, tip.y - 40) }}>
@@ -413,6 +430,9 @@ function Timeline({
   plans,
   changes,
   measures,
+  routines,
+  view,
+  nowMin,
 }: {
   today: string;
   tracks: Track[];
@@ -420,6 +440,9 @@ function Timeline({
   plans: Plan[];
   changes: ChangeNote[];
   measures: Measure[];
+  routines: Routine[];
+  view: { start: number; end: number };
+  nowMin: number;
 }) {
   const [weeks, setWeeks] = useState(4);
   const byId = new Map(tracks.map((t) => [t.id, t]));
@@ -454,6 +477,19 @@ function Timeline({
                       変化：{byId.get(c.trackId)?.name ?? ''}　{c.text}
                     </span>
                   ))}
+                  {(() => {
+                    // 空いていた時間（印を付けた日だけ。2026-11-10）
+                    const p = plans.find((x) => x.lifeDate === d.date);
+                    if (!p?.gapLabels?.length) return null;
+                    const b = gapBreakdown(pastGaps(d.date, routines, p, view, d.date === today ? nowMin : undefined), p.gapLabels);
+                    const parts = GAP_LABELS.filter((x) => b.byLabel[x.key] > 0).map((x) => `${x.label} ${formatDuration(b.byLabel[x.key])}`);
+                    return (
+                      <span className="small muted">
+                        空き {formatDuration(b.total)}
+                        {parts.length ? `（${parts.join('・')}）` : ''}
+                      </span>
+                    );
+                  })()}
                   {d.measures.map((m) => (
                     <span key={m.id} className="small muted">
                       {byId.get(m.trackId)?.name ?? ''}　{m.value}
@@ -469,6 +505,69 @@ function Timeline({
       <button className="btn-ghost" onClick={() => setWeeks(weeks + 4)}>
         もっと前を見る
       </button>
+    </section>
+  );
+}
+
+/** 灰色系だけで塗り分ける（赤は使わない） */
+const GAP_TONE: Record<GapLabel | 'none', string> = { phone: '#4b5360', rest: '#9aa3ae', errand: '#c4cad2', none: '#e6e9ed' };
+
+/**
+ * 空いていた時間（2026-11-10）：週ごとの内訳と、「スマホ・だらだら」になりやすい時間帯。
+ * 比べる言葉や目標は出さない。計画のある日だけ数える
+ */
+function GapRecords({ plans, routines, view, today, nowMin }: { plans: Plan[]; routines: Routine[]; view: { start: number; end: number }; today: string; nowMin: number }) {
+  const weeks = weeklyGapBreakdown(plans, routines, view, today, nowMin, 8);
+  const anyLabel = plans.some((p) => p.gapLabels?.length);
+  if (!anyLabel) return null;
+  const max = Math.max(60, ...weeks.map((w) => w.b.total));
+  const byHour = labelByHour(plans, 'phone', today, 28);
+  const hours: number[] = [];
+  for (let h = view.start; h < view.end; h++) hours.push(h);
+  const hMax = Math.max(1, ...hours.map((h) => byHour[h] ?? 0));
+  const keys: (GapLabel | 'none')[] = ['phone', 'rest', 'errand', 'none'];
+  const name = (k: GapLabel | 'none') => (k === 'none' ? '印なし' : GAP_LABEL_NAME[k]);
+  return (
+    <section className="viz-card" aria-label="空いていた時間">
+      <span className="label">空いていた時間</span>
+      <div className="gbars">
+        {weeks.map((w, i) => (
+          <div key={w.monday} className="gbar" aria-label={`${i === weeks.length - 1 ? '今週' : shortDate(w.monday)} 空き ${formatDuration(w.b.total)}`}>
+            <span className="nm mono">{i === weeks.length - 1 ? '今週' : shortDate(w.monday)}</span>
+            <span className="tr">
+              {keys.map((k) => {
+                const v = k === 'none' ? w.b.none : w.b.byLabel[k];
+                return v ? <i key={k} style={{ width: `${(v / max) * 100}%`, background: GAP_TONE[k] }} title={`${name(k)} ${formatDuration(v)}`} /> : null;
+              })}
+            </span>
+            <span className="vl mono">{w.b.total ? formatDuration(w.b.total) : ''}</span>
+          </div>
+        ))}
+      </div>
+      <div className="legend">
+        {keys.map((k) => (
+          <span key={k}>
+            <i style={{ background: GAP_TONE[k] }} />
+            {name(k)}
+          </span>
+        ))}
+      </div>
+      {Object.keys(byHour).length > 0 && (
+        <>
+          <span className="small" style={{ fontWeight: 700, marginTop: 4 }}>
+            「スマホ・だらだら」の時間帯（直近4週）
+          </span>
+          <div className="hourbars" role="img" aria-label="時間帯ごとの「スマホ・だらだら」の合計">
+            {hours.map((h) => (
+              <span key={h} className="hb">
+                <i style={{ height: `${((byHour[h] ?? 0) / hMax) * 100}%` }} title={`${h}時台 ${formatDuration(byHour[h] ?? 0)}`} />
+                <small>{h % 3 === 0 ? (h >= 24 ? h - 24 : h) : ''}</small>
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+      <span className="small muted">振り返りで印を付けた時間を数えます。計画のない日は数えません。</span>
     </section>
   );
 }

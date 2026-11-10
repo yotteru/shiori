@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import { formatDuration, formatMinute } from '../lib/calendar';
+import { setGapLabel } from '../lib/calendarActions';
+import { GAP_LABEL_NAME, GAP_LABELS, gapBreakdown, labelOf, pastGaps } from '../lib/gaps';
+import type { Routine } from '../lib/types';
 import { finalizeReview, saveJournal } from '../lib/actions';
 import { JOURNAL_MAX_LENGTH, type Plan } from '../lib/types';
 import { useDraft } from './useDraft';
@@ -101,6 +105,52 @@ export function JournalCard({ lifeDate, saved }: { lifeDate: string; saved: stri
           保存
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * 空いていた時間（2026-11-10）：今日の過ぎた空きに、任意で印を付ける。
+ * 責める言葉は出さない。付けなければ「空き」のまま
+ */
+export function GapCard({ date, plan, routines, view, nowMin }: { date: string; plan?: Plan; routines: Routine[]; view: { start: number; end: number }; nowMin: number }) {
+  const gaps = pastGaps(date, routines, plan, view, nowMin);
+  if (!gaps.length) return null;
+  const b = gapBreakdown(gaps, plan?.gapLabels);
+  const parts = GAP_LABELS.filter((x) => b.byLabel[x.key] > 0).map((x) => `${x.label} ${formatDuration(b.byLabel[x.key])}`);
+  return (
+    <div className="card" style={{ gap: 8 }}>
+      <span className="label">空いていた時間</span>
+      <span className="small muted">
+        今日の空き {formatDuration(b.total)}
+        {parts.length ? `（${parts.join('・')}）` : ''}。印は付けなくても大丈夫です。
+      </span>
+      {gaps.map((g) => {
+        const cur = labelOf(g, plan?.gapLabels);
+        return (
+          <div key={g.start} className="stack" style={{ gap: 4 }}>
+            <span className="small">
+              <span className="mono">
+                {formatMinute(g.start)}–{formatMinute(g.start + g.len)}
+              </span>{' '}
+              {formatDuration(g.len)}
+              {cur && <span className="muted">・{GAP_LABEL_NAME[cur]}</span>}
+            </span>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+              {GAP_LABELS.map((x) => (
+                <button
+                  key={x.key}
+                  className={`chip-btn${cur === x.key ? ' gap-on' : ''}`}
+                  aria-pressed={cur === x.key}
+                  onClick={() => void setGapLabel(date, g, cur === x.key ? undefined : x.key)}
+                >
+                  {x.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

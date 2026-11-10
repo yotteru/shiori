@@ -42,7 +42,7 @@ import { NightFinishedExtras } from './Backup';
 import { Calendar, PX_PER_MIN, type CalBlock } from './Calendar';
 import { EndSelect, Sheet, TimeSelect, Toast } from './common';
 import { DoneSheet } from './DoneSheet';
-import { JournalCard, ReviewCard } from './Reflection';
+import { GapCard, JournalCard, ReviewCard } from './Reflection';
 import { allocationItems, DaySheet, loadWeekMode, saveWeekMode, WeekBody, weekLabel, weekTitle } from './WeekView';
 import { slideTo, useSwipe } from './useSwipe';
 import { allDayEvents, defaultWeekOffset, weekDates } from '../lib/week';
@@ -654,6 +654,7 @@ export function DayView() {
           ) : (
             <p className="sub">今日の行き先はまだありません。</p>
           )}
+          <GapCard date={today} plan={data.plans.find((p) => p.lifeDate === today)} routines={data.routines} view={view} nowMin={nowMin} />
           <JournalCard key={today} lifeDate={today} saved={data.journal?.text ?? ''} />
           <button className="btn-primary" onClick={() => setSheet(null)}>
             閉じる
