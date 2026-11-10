@@ -161,7 +161,12 @@ export function findGaps(blocks: { start: number; min: number }[], options: { mi
 }
 
 /** 今週（月曜はじまり）に済をつけた時間を、取り組みごとに合計する */
-export function weeklyDoneMinutes(plans: Plan[], today: string, sessions: StartSession[] = []): Record<string, number> {
+export function weeklyDoneMinutes(
+  plans: Plan[],
+  today: string,
+  sessions: StartSession[] = [],
+  routineDays: { trackId?: string; date: string; min: number }[] = [],
+): Record<string, number> {
   const monday = weekStartMonday(today);
   const sunday = addDays(monday, 6);
   const out: Record<string, number> = {};
@@ -170,6 +175,8 @@ export function weeklyDoneMinutes(plans: Plan[], today: string, sessions: StartS
     const day = sessions.filter((s) => s.lifeDate === p.lifeDate);
     for (const [trackId, min] of Object.entries(workedMinutes(p, day))) out[trackId] = (out[trackId] ?? 0) + min;
   }
+  // 取り組みにつないだ、いつもの固定（2026-11-10）
+  for (const r of routineDays) if (r.trackId && r.date >= monday && r.date <= sunday) out[r.trackId] = (out[r.trackId] ?? 0) + r.min;
   return out;
 }
 

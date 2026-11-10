@@ -10,7 +10,13 @@ export interface WeeklyHistory {
   byTrack: Record<string, number[]>;
 }
 
-export function weeklyHistory(plans: Plan[], today: string, count = 8, sessions: StartSession[] = []): WeeklyHistory {
+export function weeklyHistory(
+  plans: Plan[],
+  today: string,
+  count = 8,
+  sessions: StartSession[] = [],
+  routineDays: { trackId?: string; date: string; min: number }[] = [],
+): WeeklyHistory {
   const thisMonday = weekStartMonday(today);
   const weeks = Array.from({ length: count }, (_, i) => addDays(thisMonday, -7 * (count - 1 - i)));
   const byTrack: Record<string, number[]> = {};
@@ -21,6 +27,12 @@ export function weeklyHistory(plans: Plan[], today: string, count = 8, sessions:
     for (const [trackId, min] of Object.entries(workedMinutes(p, day))) {
       (byTrack[trackId] ??= Array(count).fill(0))[idx] += min;
     }
+  }
+  // 取り組みにつないだ、いつもの固定（2026-11-10）
+  for (const r of routineDays) {
+    if (!r.trackId) continue;
+    const idx = weeks.indexOf(weekStartMonday(r.date));
+    if (idx >= 0) (byTrack[r.trackId] ??= Array(count).fill(0))[idx] += r.min;
   }
   return { weeks, byTrack };
 }
