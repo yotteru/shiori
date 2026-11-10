@@ -5,6 +5,7 @@ import { addRoutine, deleteRoutine, setCalendarView, updateRoutine } from '../li
 import { now } from '../lib/clock';
 import { db, getMeta } from '../lib/db';
 import { lifeDate } from '../lib/lifeDate';
+import { nextSlotOf, sortRoutinesGrouped } from '../lib/routineRecords';
 import type { Routine } from '../lib/types';
 import { EndSelect, formatEnd, TimeSelect } from './common';
 
@@ -17,8 +18,11 @@ const toMin = (hm: string) => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
 export function RoutineSettings() {
   const routines = useLive(() => db.routines.orderBy('id').toArray(), []);
   const [adding, setAdding] = useState(false);
+  // 時間帯を足した直後は、その固定を開いて時刻を選べるようにする
+  const [justAdded, setJustAdded] = useState<string | null>(null);
   if (!routines) return null;
-  const sorted = routines.slice().sort((a, b) => a.start - b.start);
+  // 同じ名前（時間帯を分けた固定）は続けて並べる（2026-11-10）
+  const sorted = sortRoutinesGrouped(routines);
   return (
     <div className="card">
       <span className="label">いつもの固定</span>
@@ -26,7 +30,7 @@ export function RoutineSettings() {
         仕事・食事・風呂など。曜日に合わせて毎日カレンダーの左の列に自動で置かれます。ここで変えると今日以降のすべての日に反映されます（その日に自分で動かした・外した固定はそのまま）。
       </span>
       {sorted.map((r) => (
-        <RoutineRow key={r.id} r={r} />
+        <RoutineRow key={r.id} r={r} initiallyOpen={r.id === justAdded} onAddSlot={async () => setJustAdded((await addRoutine(nextSlotOf(r))).id)} />
       ))}
       {adding ? (
         <NewRoutine onDone={() => setAdding(false)} />
@@ -64,8 +68,8 @@ function DaysPicker({ days, onChange }: { days: number[]; onChange: (d: number[]
   );
 }
 
-function RoutineRow({ r }: { r: Routine }) {
-  const [open, setOpen] = useState(false);
+function RoutineRow({ r, initiallyOpen = false, onAddSlot }: { r: Routine; initiallyOpen?: boolean; onAddSlot: () => void }) {
+  const [open, setOpen] = useState(initiallyOpen);
   const habits = useLive(async () => (await db.tracks.toArray()).filter((t) => t.type === 'habit' && !t.archivedAt), []);
   const linked = habits?.find((t) => t.id === r.trackId);
   const [title, setTitle] = useState(r.title);
@@ -128,6 +132,10 @@ function RoutineRow({ r }: { r: Routine }) {
               </span>
             </label>
           )}
+          <button className="btn" style={{ minHeight: 40 }} onClick={onAddSlot}>
+            この固定に時間帯を足す
+          </button>
+          <span className="small muted">通勤の行きと帰りのように、同じ名前で別の時刻を足します（曜日・記録の設定も写します）。</span>
           <button className="btn-ghost" style={{ alignSelf: 'flex-start', color: 'var(--warn)' }} onClick={() => deleteRoutine(r.id)}>
             このいつもの固定を削除
           </button>
