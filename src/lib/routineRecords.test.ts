@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recordedRoutineDays, routineMinutesByTrack } from './routineRecords';
+import { groupRoutineDaysByTitle, nextSlotOf, recordedRoutineDays, routineMinutesByTrack, sortRoutinesGrouped } from './routineRecords';
 import type { Plan, Routine } from './types';
 
 const sleep: Routine = { id: 'sleep', title: '睡眠', start: 23 * 60, min: 8 * 60, days: [0, 1, 2, 3, 4, 5, 6], record: true, recordFrom: '2026-11-07', createdAt: '' };
@@ -22,5 +22,25 @@ describe('いつもの固定の記録（2026-11-10）', () => {
   it('つないだ取り組みの、日ごとの分', () => {
     const days = recordedRoutineDays([gym], [], '2026-11-02', '2026-11-08', '2026-11-10', 0);
     expect(routineMinutesByTrack(days)).toEqual({ g: { '2026-11-02': 60, '2026-11-04': 60, '2026-11-06': 60 } });
+  });
+});
+
+describe('同じ名前の固定（時間帯を分けた固定）', () => {
+  const am: Routine = { id: 'c1', title: '通勤', start: 8 * 60, min: 60, days: [1, 2, 3, 4, 5], record: true, recordFrom: '2026-11-02', createdAt: '' };
+  const pm: Routine = { ...am, id: 'c2', start: 18 * 60 };
+  const lunch: Routine = { id: 'l', title: '昼食', start: 12 * 60, min: 60, days: [1, 2, 3, 4, 5], createdAt: '' };
+
+  it('一覧は同じ名前を続けて並べる', () => {
+    expect(sortRoutinesGrouped([pm, lunch, am]).map((r) => `${r.title}${r.start / 60}`)).toEqual(['通勤8', '通勤18', '昼食12']);
+  });
+
+  it('時間帯を足すと、名前・曜日・記録の設定を写して、終わりの時刻から1時間', () => {
+    expect(nextSlotOf(am)).toEqual({ title: '通勤', start: 9 * 60, min: 60, days: [1, 2, 3, 4, 5], record: true, recordFrom: '2026-11-02' });
+  });
+
+  it('記録は名前ごとに、1日の合計と最初の時間帯の始まり', () => {
+    const days = recordedRoutineDays([am, pm], [], '2026-11-02', '2026-11-02', '2026-11-10', 0);
+    const g = groupRoutineDaysByTitle(days, [am, pm]);
+    expect(g.get('通勤')?.get('2026-11-02')).toEqual({ min: 120, start: 480 });
   });
 });
