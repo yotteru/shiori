@@ -7,7 +7,7 @@ import { DEFAULT_VIEW } from '../lib/calendar';
 import { GAP_LABEL_NAME, GAP_LABELS, gapBreakdown, labelByHour, pastGaps, weeklyGapBreakdown } from '../lib/gaps';
 import { minutesIntoLifeDay } from '../lib/lifeDate';
 import { addDays, lifeDate, weekStartMonday } from '../lib/lifeDate';
-import { recordedRoutineDays, type RoutineDay } from '../lib/routineRecords';
+import { groupRoutineDaysByTitle, recordedRoutineDays, sortRoutinesGrouped, type RoutineDay } from '../lib/routineRecords';
 import { weeklyHistory, weeklyStarts } from '../lib/records';
 import { daysSinceTouched } from '../lib/tracks';
 import type { ChangeNote, GapLabel, Journal, Measure, Plan, Routine, StartSession, Track } from '../lib/types';
@@ -597,16 +597,23 @@ function GapRecords({ plans, routines, view, today, nowMin }: { plans: Plan[]; r
  * 直近4週の毎日の長さの棒と、始まりの時刻の点。灰色系で、目標や比べる言葉は出さない
  */
 function RoutineRecords({ routines, days, today }: { routines: Routine[]; days: RoutineDay[]; today: string }) {
-  const list = routines.filter((r) => r.record && !r.trackId).sort((a, b) => a.start - b.start);
-  if (!list.length) return null;
+  // 同じ名前（時間帯を分けた固定）は1つにまとめ、1日の合計で出す（2026-11-10）
+  const own = sortRoutinesGrouped(routines.filter((r) => r.record && !r.trackId));
+  const titles = [...new Set(own.map((r) => r.title))];
+  if (!titles.length) return null;
+  const grouped = groupRoutineDaysByTitle(
+    days.filter((d) => own.some((r) => r.id === d.routineId)),
+    own,
+  );
   const dates: string[] = [];
   for (let i = 27; i >= 0; i--) dates.push(addDays(today, -i));
   return (
     <section className="viz-card" aria-label="いつもの固定">
       <span className="label">いつもの固定</span>
-      {list.map((r) => {
-        const mine = days.filter((d) => d.routineId === r.id);
-        const byDate = new Map(mine.map((d) => [d.date, d]));
+      {titles.map((title) => {
+        const r = own.find((x) => x.title === title)!;
+        const byDate = grouped.get(title) ?? new Map<string, { min: number; start: number }>();
+        const mine = [...byDate.values()];
         const W = 320;
         const H = 70;
         const T = 56;
@@ -620,21 +627,22 @@ function RoutineRecords({ routines, days, today }: { routines: Routine[]; days: 
         const avg = mine.length ? Math.round(mine.reduce((a, d) => a + d.min, 0) / mine.length) : 0;
         const hm = (m: number) => `${Math.floor(m / 60) % 24}:${String(m % 60).padStart(2, '0')}`;
         return (
-          <div key={r.id} className="stack" style={{ gap: 4 }}>
+          <div key={title} className="stack" style={{ gap: 4 }}>
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <b style={{ fontSize: 14 }}>{r.title}</b>
+              <b style={{ fontSize: 14 }}>{title}</b>
               <span className="small muted">{mine.length ? `直近4週の平均 ${formatDuration(avg)}` : 'まだ記録がありません'}</span>
             </div>
             {mine.length > 0 && (
-              <svg viewBox={`0 0 ${W} ${H + T + 18}`} width="100%" role="img" aria-label={`${r.title}の直近4週の長さと始まりの時刻`} style={{ maxWidth: '100%' }}>
-                <text x={pad.l - 4} y={10} textAnchor="end" fontSize="9" fill="var(--muted)">
+              <svg viewBox={`0 0 ${W} ${H + T + 18}`} width="100%" role="img" aria-label={`${title}の直近4週の長さと始まりの時刻`} style={{ maxWidth: '100%' }}>
+                {/* 目盛りの最大は棒の上に（左の余白に入れると長い「1時間45分」が切れる） */}
+                <text x={pad.l} y={9} fontSize="9" fill="var(--muted)">
                   {formatDuration(maxMin)}
                 </text>
                 <line x1={pad.l} x2={W - pad.r} y1={H} y2={H} stroke="var(--line-soft)" />
                 {dates.map((d, i) => {
                   const x = byDate.get(d);
                   if (!x) return null;
-                  const h = (x.min / maxMin) * (H - 6);
+                  const h = (x.min / maxMin) * (H - 14);
                   return <rect key={d} x={pad.l + i * cw + 1} y={H - h} width={Math.max(2, cw - 2)} height={h} rx="1.5" fill={d === today ? '#4b5360' : '#9aa3ae'} />;
                 })}
                 <text x={pad.l - 4} y={H + 12} textAnchor="end" fontSize="9" fill="var(--muted)">
@@ -662,7 +670,7 @@ function RoutineRecords({ routines, days, today }: { routines: Routine[]; days: 
           </div>
         );
       })}
-      <span className="small muted">上の棒が毎日の長さ、下の点が始まりの時刻です。予定どおりやったとみなして数え、その日に動かした時刻・外した日はそのとおりに残ります。</span>
+      <span className="small muted">上の棒が毎日の長さ（同じ名前の時間帯は合計）、下の点が始まりの時刻（その日の最初の時間帯）です。予定どおりやったとみなして数え、その日に動かした時刻・外した日はそのとおりに残ります。</span>
     </section>
   );
 }
