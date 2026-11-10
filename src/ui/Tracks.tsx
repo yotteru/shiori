@@ -9,6 +9,7 @@ import {
   deleteLeftover,
   deleteStep,
   moveStepUp,
+  setStepDone,
   restoreLeftover,
   updateStep,
   updateTrack,
@@ -16,7 +17,7 @@ import {
 import { lastDoneByTrack } from '../lib/candidates';
 import { db } from '../lib/db';
 import { formatLifeDateJa, lifeDate } from '../lib/lifeDate';
-import { daysSinceTouched, isStalled } from '../lib/tracks';
+import { daysSinceTouched, deadlineLabel, isStalled } from '../lib/tracks';
 import type { Leftover, Step, Track } from '../lib/types';
 import { MinutesSelect, Sheet } from './common';
 import { parseMeasure } from '../lib/reflection';
@@ -104,6 +105,11 @@ export function Tracks() {
   );
 }
 
+/** '2026-12-31' → '12/31' */
+function shortDeadline(d: string): string {
+  return `${d.slice(5, 7)}/${d.slice(8, 10)}`;
+}
+
 function TrackCard({ track, steps, lastDoneAt, today, onOpen }: {
   track: Track;
   steps: Step[];
@@ -121,6 +127,12 @@ function TrackCard({ track, steps, lastDoneAt, today, onOpen }: {
         <span className="small muted">{track.type === 'project' ? 'プロジェクト' : track.type === 'number' ? '数値' : '習慣'}</span>
       </div>
       {track.goal && <span className="small">なりたい状態：{track.goal}</span>}
+      {track.type === 'project' && track.deadline && (
+        <span className="small muted">
+          期日 {shortDeadline(track.deadline)}
+          {deadlineLabel(track, today) ? `・${deadlineLabel(track, today)}` : ''}
+        </span>
+      )}
       {/* 進み具合のグラフは「記録」タブへ。ここは決める・直すための一覧 */}
       <span className="small muted">
         {track.type === 'number'
@@ -288,6 +300,23 @@ function TrackDetail({ track, steps, onBack }: { track: Track; steps: Step[]; on
         </div>
       ) : (
         <div className="stack">
+          <label className="field">
+            <span>期日（任意。「あと○日」を淡く出すだけで、過ぎても責めません）</span>
+            <div className="row">
+              <input
+                className="input"
+                type="date"
+                aria-label="期日"
+                value={track.deadline ?? ''}
+                onChange={(e) => updateTrack(track.id, { deadline: e.target.value || undefined })}
+              />
+              {track.deadline && (
+                <button className="btn" style={{ flex: 'none', padding: '0 12px' }} onClick={() => updateTrack(track.id, { deadline: undefined })}>
+                  消す
+                </button>
+              )}
+            </div>
+          </label>
           <span className="section-label">ステップ</span>
           {sorted.map((s, i) => (
             <StepRow key={s.id} step={s} first={i === 0} />
@@ -365,7 +394,7 @@ function StepRow({ step, first }: { step: Step; first: boolean }) {
           onBlur={(e) => e.target.value.trim() && updateStep(step.id, { title: e.target.value.trim() })}
         />
         {done ? (
-          <span className="stamp" style={{ flex: 'none' }}>済</span>
+          <span className="stamp" style={{ flex: 'none' }}>完了</span>
         ) : (
           <button className="btn-icon" aria-label="ひとつ前へ" disabled={first} onClick={() => moveStepUp(step.id)}>
             ↑
@@ -385,14 +414,20 @@ function StepRow({ step, first }: { step: Step; first: boolean }) {
             defaultValue={step.firstStep}
             onBlur={(e) => updateStep(step.id, { firstStep: e.target.value.trim() })}
           />
-          <button
-            className="btn-ghost"
-            style={{ alignSelf: 'flex-start' }}
-            onClick={() => window.confirm('このステップを削除しますか？') && deleteStep(step.id)}
-          >
-            削除
-          </button>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <button className="btn-ghost" onClick={() => window.confirm('このステップを削除しますか？') && deleteStep(step.id)}>
+              削除
+            </button>
+            <button className="btn" style={{ minHeight: 36, padding: '0 14px' }} onClick={() => setStepDone(step.id, true)}>
+              このステップを完了にする
+            </button>
+          </div>
         </>
+      )}
+      {done && (
+        <button className="btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setStepDone(step.id, false)}>
+          完了を取り消す
+        </button>
       )}
     </div>
   );

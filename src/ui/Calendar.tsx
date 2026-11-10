@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { formatMinute, layoutColumns, MIN_LEN, snap, type Gap } from '../lib/calendar';
+import { fixedDepths, formatMinute, layoutColumns, MIN_LEN, snap, type Gap } from '../lib/calendar';
 
 // 縦のカレンダー（2026-11-08。試作ページと同じ操作）
 // - 予定をタップで選ぶ → 本体をドラッグで移動、上下の丸で開始・終了（30分から15分刻み）
@@ -9,6 +9,8 @@ import { formatMinute, layoutColumns, MIN_LEN, snap, type Gap } from '../lib/cal
 /** 15分 = 21px、30分 = 42px（「時刻・長さ」1行＋名前2行が入る高さ） */
 export const PX_PER_MIN = 21 / 15;
 const FIXED_W = 64;
+const STACK_X = 10;
+
 
 export interface CalBlock {
   id: string;
@@ -18,6 +20,8 @@ export interface CalBlock {
   tone: 'habit' | 'project' | 'fixed';
   status?: 'planned' | 'done' | 'undone';
   isNext?: boolean;
+  /** 同じ行き先を何回か置いた日の「何回目/全部で」（2026-11-10） */
+  nth?: string;
   first?: string;
   cue?: string;
 }
@@ -71,6 +75,10 @@ export function Calendar({
 
   const main = blocks.filter((b) => b.tone !== 'fixed');
   const cols = layoutColumns(main);
+  const fixedOnly = blocks.filter((b) => b.tone === 'fixed');
+  const depth = fixedDepths(fixedOnly);
+  // すぐ後（30分以内）に別の固定が重なる固定は、名前を時刻より先に出す（上に重なっても名前が見えるように）
+  const covered = new Set(fixedOnly.filter((b) => fixedOnly.some((o) => o.id !== b.id && o.start > b.start && o.start < b.start + 30)).map((b) => b.id));
 
   const minuteAt = (clientY: number) => {
     const r = gridRef.current!.getBoundingClientRect();
@@ -163,7 +171,12 @@ export function Calendar({
   for (let t = st + 30; t < en; t += 30) lines.push(t);
   const sel = blocks.find((b) => b.id === selectedId);
   const pos = (b: CalBlock) => {
-    if (b.tone === 'fixed') return { left: '3px', width: `${FIXED_W - 6}px` };
+    if (b.tone === 'fixed') {
+      // 重なった固定は、後から始まるものを右にずらして上に重ねる（両方の名前の頭が見える。2026-11-10）
+      const d = depth[b.id] ?? 0;
+      // 幅はほとんど縮めず、少しだけ取り組みの列にはみ出してよい（細くすると名前が読めない）
+      return { left: `${3 + d * STACK_X}px`, width: `${FIXED_W - 6 - d * 4}px`, zIndex: d ? 1 + d : undefined };
+    }
     const c = cols[b.id] ?? { col: 0, cols: 1 };
     return {
       left: `calc(${FIXED_W + 6}px + (100% - ${FIXED_W + 10}px) * ${c.col} / ${c.cols})`,
@@ -233,6 +246,8 @@ export function Calendar({
             b.isNext ? 'next' : b.tone,
             b.tone !== 'fixed' && b.min >= 60 ? 'tall' : '',
             b.status === 'done' ? 'done' : b.status === 'undone' ? 'undone' : '',
+            depth[b.id] ? 'stacked' : '',
+            covered.has(b.id) ? 'covered' : '',
             isSel ? 'sel' : '',
           ].join(' ');
           return (
@@ -249,7 +264,10 @@ export function Calendar({
               }}
               onPointerDown={isSel ? (e) => startDrag(e, b, 'move') : undefined}
             >
-              <span className="tm">{time}</span>
+              <span className="tm">
+                {time}
+                {b.nth && <i className="nth">{b.nth}</i>}
+              </span>
               <span className="tt" ref={fitTitle}>
                 {b.title}
               </span>

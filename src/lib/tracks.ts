@@ -24,3 +24,11 @@ export function recentHabitDays(trackId: string, plans: Plan[], today: string, n
     return { date, done: doneDates.has(date) };
   });
 }
+
+/** 期日までの表示（プロジェクト型だけ）。期日を過ぎたら何も出さない（「過ぎた」とは言わない。2026-11-10） */
+export function deadlineLabel(track: Pick<Track, 'type' | 'deadline'>, today: string): string | undefined {
+  if (track.type !== 'project' || !track.deadline) return undefined;
+  const n = diffDays(today, track.deadline);
+  if (n < 0) return undefined;
+  return n === 0 ? '今日まで' : `あと${n}日`;
+}

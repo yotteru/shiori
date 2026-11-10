@@ -343,3 +343,11 @@ button.cell { padding: 0; background-color: transparent; cursor: pointer; }
 .cal-mark { position: absolute; right: 4px; transform: translateY(-50%); z-index: 5; pointer-events: none; display: inline-flex; align-items: center; gap: 3px; max-width: 45%; font-size: 10px; padding: 1px 7px 1px 5px; border-radius: 999px; background: var(--surface); border: 1px dashed var(--muted); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-mark i { font-style: normal; color: var(--next); font-size: 9px; }
 .cal-mark.live { border-style: solid; border-color: var(--next); color: var(--text); }
+/* ステップの繰り返し・期日・固定の重なり（2026-11-10） */
+.tray-cand small .due { color: var(--muted); }
+.tray-cand small .cnt { margin-left: 4px; font-weight: 700; color: var(--text); background: var(--track); border-radius: 999px; padding: 0 5px; }
+.tray-cand.held small .cnt { background: var(--card-strong-2); color: #fff; }
+.blk .tm .nth { font-style: normal; margin-left: 4px; font-weight: 700; }
+.blk.fixed.stacked { box-shadow: 0 0 0 1.5px var(--surface), -2px 2px 6px rgba(21, 24, 29, 0.12); }
+.wc-tags i.dl, .chip.dl { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+.blk.fixed.covered .tt { order: -1; }
