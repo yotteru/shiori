@@ -1,11 +1,12 @@
 import { afterPlanSaved, itemFromCandidate, lastWindow, type SavePlanResult } from './actions';
 import type { Candidate } from './candidates';
-import { findGaps, fixedBlocksFor, MIN_LEN, withStarts } from './calendar';
+import { findGaps, fixedBlocksFor, MIN_LEN, withStarts, type Gap } from './calendar';
 import { nowIso } from './clock';
 import { db, getMeta, updateMeta, type ShioriDB } from './db';
 import { newId } from './id';
 import { weekday } from './lifeDate';
-import type { Plan, PlanItem, Routine } from './types';
+import { withGapLabel } from './gaps';
+import type { GapLabel, Plan, PlanItem, Routine } from './types';
 
 // カレンダーでの操作（2026-11-08）。どれも端末内にすぐ保存する（同期は自動）
 
@@ -242,4 +243,9 @@ export async function setCalendarView(view: { start: number; end: number; focus:
   const end = Math.max(start + 1, Math.min(28, view.end));
   const focus = Math.max(start, Math.min(end - 1, view.focus));
   await updateMeta({ calendarView: { start, end, focus } }, database);
+}
+
+/** 空いていた時間に印を付ける・外す（振り返りから。任意。2026-11-10） */
+export async function setGapLabel(lifeDate: string, gap: Gap, label: GapLabel | undefined, source: Plan['source'] = 'morning-quick', database: ShioriDB = db) {
+  await editPlan(lifeDate, source, (p) => ({ ...p, gapLabels: withGapLabel(p.gapLabels, gap, label) }), database);
 }

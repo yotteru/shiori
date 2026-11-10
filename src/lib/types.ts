@@ -60,9 +60,19 @@ export interface Plan {
   holiday?: boolean;
   /** この日にやること（週の見通しで付ける取り組みの札。時刻は決めない。2026-11-09） */
   intents?: string[];
+  /** 空いていた時間に、振り返りで付けた印（任意。2026-11-10）。start〜start+min の範囲に付く */
+  gapLabels?: GapLabelEntry[];
   /** 前の晩の準備（最初の行き先のために今夜やること） */
   prep?: { text: string; doneAt?: string };
   updatedAt?: string;
+}
+
+/** 空いていた時間の印。休んだ／スマホ・だらだら／予定外の用事（2026-11-10） */
+export type GapLabel = 'rest' | 'phone' | 'errand';
+export interface GapLabelEntry {
+  start: number;
+  min: number;
+  label: GapLabel;
 }
 
 /** この日だけの固定の予定 */
