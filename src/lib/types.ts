@@ -206,6 +206,12 @@ export interface Meta {
   /** 日曜の夜に「来週の見通し」を知らせる（2026-11-09）。端末ごと */
   weekReminder?: boolean;
   /** 予定の開始時刻の通知（2026-11-08）。端末ごと */
+  /** 予定の終わる時刻の通知（2026-11-10。済をつけるきっかけ）。端末ごと */
+  endReminder?: {
+    enabled: boolean;
+    /** 文面。{行き先} が行き先の名前に置きかわる */
+    template: string;
+  };
   startReminder?: {
     enabled: boolean;
     /** 何分前に知らせるか（0 = 開始時刻ちょうど） */

@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useLive } from '../hooks';
 import { getMeta, updateMeta } from '../lib/db';
 import {
+  DEFAULT_END_REMINDER,
   DEFAULT_START_REMINDER,
+  endReminderSettings,
   LEAD_CHOICES,
   NAME_TOKEN,
   reminderBody,
@@ -15,7 +17,15 @@ import { supabase } from '../lib/supabase';
 export function StartReminderSettingsCard() {
   const meta = useLive(() => getMeta(), []);
   const [draft, setDraft] = useState<string | null>(null);
+  const [endDraft, setEndDraft] = useState<string | null>(null);
   if (!supabase || !meta) return null;
+  const e = endReminderSettings(meta);
+  const saveEnd = (patch: Partial<typeof e>) => updateMeta({ endReminder: { ...e, ...patch } });
+  const endTemplate = endDraft ?? e.template;
+  const commitEnd = () => {
+    if (endDraft !== null) void saveEnd({ template: endDraft });
+    setEndDraft(null);
+  };
   const s = startReminderSettings(meta);
   const save = (patch: Partial<StartReminderSettings>) => updateMeta({ startReminder: { ...s, ...patch } });
   const template = draft ?? s.template;
@@ -86,6 +96,42 @@ export function StartReminderSettingsCard() {
               ? `「${NAME_TOKEN}」が行き先の名前になります。名前は通知を送るまでサーバーに置かれ、送ったら消えます。`
               : `「${NAME_TOKEN}」と書くと、行き先の名前が入ります（名前は送るまでサーバーに置かれます）。`}
           </span>
+        </>
+      )}
+      {/* 終わる時刻（2026-11-10）：済をつけるきっかけ。開始の通知と同じ時刻なら1通にまとめる */}
+      <span className="label" style={{ marginTop: 8 }}>
+        予定の終わる時刻
+      </span>
+      <label className="row" style={{ gap: 8, alignItems: 'center' }}>
+        <input type="checkbox" checked={e.enabled} onChange={(ev) => void saveEnd({ enabled: ev.target.checked })} />
+        <span>終わる時刻にも知らせる</span>
+      </label>
+      {e.enabled && (
+        <>
+          <span className="small muted">終わる時刻ちょうどに、済でも未でもない予定を知らせます（始めている最中のものも）。開始の通知と同じ時刻なら1通にまとめます。</span>
+          <label className="field">
+            <span>文面</span>
+            <input
+              className="input"
+              value={endTemplate}
+              maxLength={120}
+              placeholder={DEFAULT_END_REMINDER.template}
+              onChange={(ev) => setEndDraft(ev.target.value)}
+              onBlur={commitEnd}
+              onKeyDown={(ev) => ev.key === 'Enter' && !ev.nativeEvent.isComposing && commitEnd()}
+            />
+          </label>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+            {!endTemplate.includes(NAME_TOKEN) && (
+              <button className="chip-btn" onClick={() => void saveEnd({ template: `${NAME_TOKEN} の終わりの時間です。済をつけますか` }).then(() => setEndDraft(null))}>
+                行き先の名前を入れる
+              </button>
+            )}
+            <button className="chip-btn" onClick={() => void saveEnd({ template: DEFAULT_END_REMINDER.template }).then(() => setEndDraft(null))}>
+              最初の文面に戻す
+            </button>
+          </div>
+          <span className="small muted">例：「{reminderBody(endTemplate, 'アドイン：干渉判定を作る', DEFAULT_END_REMINDER.template)}」</span>
         </>
       )}
       <span className="label" style={{ marginTop: 8 }}>

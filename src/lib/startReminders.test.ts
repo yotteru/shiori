@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildStartReminders, DEFAULT_START_REMINDER, reminderBody, startInstant } from './startReminders';
+import { buildStartReminders, DEFAULT_END_REMINDER, DEFAULT_START_REMINDER, reminderBody, startInstant } from './startReminders';
 import type { Plan, PlanItem, StartSession } from './types';
 
 const plan = (lifeDate: string, items: Partial<PlanItem>[]): Plan => ({
@@ -53,5 +53,32 @@ describe('開始時刻の通知', () => {
     expect(r).toEqual([{ send_at: '2026-11-15T12:00:00.000Z', body: expect.stringContaining('来週') }]);
     expect(buildStartReminders([], '2026-11-14', DEFAULT_START_REMINDER, [], sat, false)).toEqual([]);
     expect(buildStartReminders([], '2026-11-12', DEFAULT_START_REMINDER, [], sat, true)).toEqual([]);
+  });
+});
+
+describe('終わる時刻の通知（2026-11-10）', () => {
+  const endOn = { ...DEFAULT_END_REMINDER, enabled: true };
+  it('まだの予定の終わる時刻に送る。始めている最中のものも含め、済は除く', () => {
+    const plans = [
+      plan('2026-11-09', [
+        { id: 'a', start: 13 * 60, minutes: 30 },
+        { id: 'act', start: 11 * 60 + 30, minutes: 60 },
+        { id: 'done', start: 14 * 60, status: 'done' },
+      ]),
+    ];
+    const sessions: StartSession[] = [{ id: 's', lifeDate: '2026-11-09', startedAt: '2026-11-09T02:30:00Z', title: '', planItemId: 'act' }];
+    const r = buildStartReminders(plans, '2026-11-09', DEFAULT_START_REMINDER, sessions, now, false, endOn);
+    expect(r).toEqual([
+      { send_at: '2026-11-09T03:30:00.000Z', body: '予定の終わりの時間です。済をつけますか' },
+      { send_at: '2026-11-09T04:30:00.000Z', body: '予定の終わりの時間です。済をつけますか' },
+    ]);
+  });
+
+  it('終わりと次の始まりが同じ時刻なら1通にまとめる。オフなら送らない', () => {
+    const plans = [plan('2026-11-09', [{ id: 'a', start: 13 * 60, minutes: 30, title: '英語' }, { id: 'b', start: 13 * 60 + 30, title: 'ジム' }])];
+    const r = buildStartReminders(plans, '2026-11-09', { ...on, template: '{行き先} の時間です' }, [], now, false, { enabled: true, template: '{行き先} の終わりです' });
+    expect(r.find((x) => x.send_at === '2026-11-09T04:30:00.000Z')?.body).toBe('英語 の終わりです／ジム の時間です');
+    expect(r.filter((x) => x.send_at === '2026-11-09T04:30:00.000Z')).toHaveLength(1);
+    expect(buildStartReminders(plans, '2026-11-09', DEFAULT_START_REMINDER, [], now, false, DEFAULT_END_REMINDER)).toEqual([]);
   });
 });

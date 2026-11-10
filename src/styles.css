@@ -353,3 +353,5 @@ button.cell { padding: 0; background-color: transparent; cursor: pointer; }
 .blk.fixed.stacked { box-shadow: 0 0 0 1.5px var(--surface), -2px 2px 6px rgba(21, 24, 29, 0.12); }
 .wc-tags i.dl, .chip.dl { background: transparent; border: 1px solid var(--line); color: var(--muted); }
 .blk.fixed.covered .tt { order: -1; }
+/* 主な操作の対象（2026-11-10） */
+.next-target { font-size: 12px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
