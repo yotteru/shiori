@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { fixedDepths, formatMinute, layoutColumns, MIN_LEN, snap, type Gap } from '../lib/calendar';
+import { fixedDepths, formatDuration, formatMinute, layoutColumns, MIN_LEN, snap, type Gap } from '../lib/calendar';
 
 // 縦のカレンダー（2026-11-08。試作ページと同じ操作）
 // - 予定をタップで選ぶ → 本体をドラッグで移動、上下の丸で開始・終了（30分から15分刻み）
@@ -240,7 +240,8 @@ export function Calendar({
         ))}
         {blocks.map((b) => {
           const isSel = b.id === selectedId;
-          const time = b.tone === 'fixed' ? `${formatMinute(b.start)}〜` : `${formatMinute(b.start)}–${formatMinute(b.start + b.min)}・${b.min}分`;
+          // かかる時間は「1時間30分」の形で（2026-11-10）。固定は列が細いので、時刻と別の行に出す
+          const time = b.tone === 'fixed' ? `${formatMinute(b.start)}〜` : `${formatMinute(b.start)}–${formatMinute(b.start + b.min)}・${formatDuration(b.min)}`;
           const cls = [
             'blk',
             b.isNext ? 'next' : b.tone,
@@ -271,6 +272,12 @@ export function Calendar({
               <span className="tt" ref={fitTitle}>
                 {b.title}
               </span>
+              {b.tone === 'fixed' && (
+                <span className="du">
+                  {/* 折り返すなら「1時間 / 30分」の切れ目で */}
+                  {formatDuration(b.min).replace(/(時間)(?=\d)/, '$1\u200b')}
+                </span>
+              )}
               {b.isNext && (b.first || b.cue) && b.min >= 60 && (
                 <span className="first">{b.cue ? `${b.cue} → ${b.first || '始める'}` : `最初の一手：${b.first}`}</span>
               )}
@@ -282,12 +289,18 @@ export function Calendar({
           (['top', 'bottom'] as const).map((mode) => {
             const p = pos(sel);
             const y = mode === 'top' ? (sel.start - st) * PX_PER_MIN : (sel.start + sel.min - st) * PX_PER_MIN - 2;
+            // 固定は列が細く、丸が本体を覆って予定ごと動かせなかった。固定では丸を予定の外（上・下）に出す（2026-11-10）
+            const outside = sel.tone === 'fixed';
+            const top = outside ? (mode === 'top' ? y - 38 : y - 6) : y - 22;
             return (
               <span
                 key={mode}
-                className="cal-handle"
+                className={`cal-handle${outside ? (mode === 'top' ? ' out-top' : ' out-bottom') : ''}`}
                 aria-label={mode === 'top' ? '開始時刻を変える' : '終了時刻を変える'}
-                style={{ top: y - 22, left: mode === 'top' ? `calc(${p.left} + ${p.width} - 54px)` : `calc(${p.left} + 10px)` }}
+                style={{
+                  top,
+                  left: outside ? `calc(${p.left} + ${p.width} / 2 - 22px)` : mode === 'top' ? `calc(${p.left} + ${p.width} - 54px)` : `calc(${p.left} + 10px)`,
+                }}
                 onPointerDown={(e) => startDrag(e, sel, mode)}
                 onClick={(e) => e.stopPropagation()}
               >
