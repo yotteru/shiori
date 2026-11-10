@@ -353,3 +353,17 @@ button.cell { padding: 0; background-color: transparent; cursor: pointer; }
 .blk.fixed.stacked { box-shadow: 0 0 0 1.5px var(--surface), -2px 2px 6px rgba(21, 24, 29, 0.12); }
 .wc-tags i.dl, .chip.dl { background: transparent; border: 1px solid var(--line); color: var(--muted); }
 .blk.fixed.covered .tt { order: -1; }
+/* 主な操作の対象（2026-11-10） */
+.next-target { font-size: 12px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip-btn.gap-on { background: var(--card-strong-2); color: #fff; border-color: var(--card-strong-2); }
+/* 空いていた時間（2026-11-10）：灰色系だけ */
+.gbars { display: flex; flex-direction: column; gap: 4px; }
+.gbar { display: grid; grid-template-columns: 40px minmax(0, 1fr) 64px; align-items: center; gap: 8px; font-size: 11px; }
+.gbar .nm { color: var(--muted); }
+.gbar .tr { display: flex; height: 12px; background: transparent; border-radius: 3px; overflow: hidden; }
+.gbar .tr i { display: block; height: 100%; }
+.gbar .vl { text-align: right; color: var(--muted); }
+.hourbars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; height: 72px; align-items: end; padding-bottom: 14px; }
+.hourbars .hb { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+.hourbars .hb i { display: block; background: #4b5360; border-radius: 2px 2px 0 0; min-height: 0; }
+.hourbars .hb small { position: absolute; bottom: -14px; left: 0; font-size: 9px; color: var(--muted); font-family: var(--mono); }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { markDone } from '../lib/actions';
+import { formatMinute } from '../lib/calendar';
 import type { PlanItem } from '../lib/types';
 import { Sheet } from './common';
 import { useDraft } from './useDraft';
@@ -22,7 +23,10 @@ export function DoneSheet({ item, lifeDate, habit, onClose, onDone }: { item: Pl
   return (
     <Sheet onClose={onClose} label="済をつける">
       <div className="head">
-        <span className="sub">済をつける</span>
+        <span className="sub">
+          済をつける
+          {item.start !== undefined && <span className="mono">・{formatMinute(item.start)}–{formatMinute(item.start + item.minutes)}</span>}
+        </span>
         <span style={{ fontSize: 18, fontWeight: 700 }}>{item.title}</span>
       </div>
       <label className="field">
