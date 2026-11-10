@@ -36,7 +36,8 @@ import { activeSession } from '../lib/records';
 import { deadlineLabel } from '../lib/tracks';
 import { focusMinutes, focusShortcutUrl } from '../lib/shortcut';
 import { autoEndAt, autoEndSessions, DEFAULT_STOP_REASONS, discardSession, endSession, setSessionPush, startSession, stopSession } from '../lib/starts';
-import { addDays, jstTime, lifeDate, minutesIntoLifeDay, formatShortJa } from '../lib/lifeDate';
+import { addDays, jstTime, lifeDate, minutesIntoLifeDay, formatShortJa, weekStartMonday } from '../lib/lifeDate';
+import { recordedRoutineDays } from '../lib/routineRecords';
 import type { Plan, PlanItem, StartSession } from '../lib/types';
 import { NightFinishedExtras } from './Backup';
 import { Calendar, PX_PER_MIN, type CalBlock } from './Calendar';
@@ -230,7 +231,7 @@ export function DayView() {
   }
   const heldCand = cands.find((c) => c.key === held);
 
-  const weekly = weeklyDoneMinutes(data.plans, today, data.starts);
+  const weekly = weeklyDoneMinutes(data.plans, today, data.starts, recordedRoutineDays(data.routines, data.plans, weekStartMonday(today), addDays(weekStartMonday(today), 6), today, nowMin));
   const activeTracks = data.tracks.filter((t) => !t.archivedAt && t.type !== 'number');
   const allocItems = allocationItems(data.plans, weekDates_, activeTracks);
   const setWeekMode = (m: 'cal' | 'list') => {

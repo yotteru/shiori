@@ -64,7 +64,7 @@ export type Square = 'full' | 'half' | 'plan' | 'none';
  * 振り返りの7マス：済＝full、始めた（ここまで・始めたまま）＝half、置いたけど手つかず＝plan、なし＝none。
  * その場の5分は取り組みに入れない
  */
-export function weekSquares(plans: Plan[], sessions: StartSession[], dates: string[]): Record<string, Square[]> {
+export function weekSquares(plans: Plan[], sessions: StartSession[], dates: string[], routineDays: { trackId?: string; date: string }[] = []): Record<string, Square[]> {
   const out: Record<string, Square[]> = {};
   const rank: Record<Square, number> = { none: 0, plan: 1, half: 2, full: 3 };
   const bump = (trackId: string, i: number, s: Square) => {
@@ -75,6 +75,8 @@ export function weekSquares(plans: Plan[], sessions: StartSession[], dates: stri
     const p = plans.find((x) => x.lifeDate === d);
     for (const it of p?.items ?? []) bump(it.trackId, i, it.status === 'done' ? 'full' : 'plan');
     for (const s of sessions) if (s.lifeDate === d && s.trackId && !s.quick) bump(s.trackId, i, s.outcome === 'done' ? 'full' : 'half');
+    // 取り組みにつないだ、いつもの固定は「やった」（2026-11-10）
+    for (const r of routineDays) if (r.trackId && r.date === d) bump(r.trackId, i, 'full');
   });
   return out;
 }

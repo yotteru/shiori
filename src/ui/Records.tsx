@@ -6,7 +6,8 @@ import { db, getMeta } from '../lib/db';
 import { DEFAULT_VIEW } from '../lib/calendar';
 import { GAP_LABEL_NAME, GAP_LABELS, gapBreakdown, labelByHour, pastGaps, weeklyGapBreakdown } from '../lib/gaps';
 import { minutesIntoLifeDay } from '../lib/lifeDate';
-import { addDays, lifeDate } from '../lib/lifeDate';
+import { addDays, lifeDate, weekStartMonday } from '../lib/lifeDate';
+import { recordedRoutineDays, type RoutineDay } from '../lib/routineRecords';
 import { weeklyHistory, weeklyStarts } from '../lib/records';
 import { daysSinceTouched } from '../lib/tracks';
 import type { ChangeNote, GapLabel, Journal, Measure, Plan, Routine, StartSession, Track } from '../lib/types';
@@ -48,7 +49,10 @@ export function Records() {
   // 時間で数える取り組み（数値型は別のカードでグラフに）
   const tracks = allTracks.filter((t) => t.type !== 'number');
   const numberTracks = allTracks.filter((t) => t.type === 'number');
-  const hist = weeklyHistory(data.plans, today, 8, data.starts);
+  const nowMin = minutesIntoLifeDay(now) + 4 * 60;
+  // 記録する、いつもの固定（2026-11-10）。つないだものは取り組みの記録に入れ、つながないものは下の「いつもの固定」に
+  const routineDays = recordedRoutineDays(data.routines, data.plans, addDays(weekStartMonday(today), -7 * 7), today, today, nowMin);
+  const hist = weeklyHistory(data.plans, today, 8, data.starts, routineDays);
   const counts = weeklyStarts(data.starts, hist.weeks);
   const startsThisWeek = (id: string) => counts.byTrack[id]?.[7] ?? 0;
   const thisWeek = (id: string) => hist.byTrack[id]?.[7] ?? 0;
@@ -65,7 +69,7 @@ export function Records() {
   return (
     <div className="stack" style={{ gap: 12 }} onPointerDown={(e) => !(e.target as HTMLElement).closest('[data-tip]') && setTip(null)}>
       <h1 className="title">記録</h1>
-      {allTracks.length > 0 && <WeekSquares today={today} tracks={allTracks} plans={data.plans} starts={data.starts} measures={data.measures} />}
+      {allTracks.length > 0 && <WeekSquares today={today} tracks={allTracks} plans={data.plans} starts={data.starts} measures={data.measures} routineDays={routineDays} />}
       {allTracks.length === 0 && <p className="sub">取り組みを作って済をつけると、ここに時間が積み上がります。</p>}
 
       {tracks.length > 0 && (
@@ -192,6 +196,8 @@ export function Records() {
         <NumberCard key={t.id} track={t} measures={data.measures.filter((m) => m.trackId === t.id)} today={today} />
       ))}
 
+      <RoutineRecords routines={data.routines} days={routineDays} today={today} />
+
       <GapRecords plans={data.plans} routines={data.routines} view={data.meta.calendarView ?? DEFAULT_VIEW} today={today} nowMin={minutesIntoLifeDay(now) + 4 * 60} />
 
       <Timeline
@@ -219,10 +225,24 @@ const WD = ['月', '火', '水', '木', '金', '土', '日'];
 const SQ_LABEL: Record<Square, string> = { full: '済', half: '始めた', plan: '手つかず', none: 'なし' };
 
 /** 振り返りの7マス（2026-11-09）：取り組み × 曜日。埋まったマスを眺めるだけ（空いたマスへの言葉は出さない） */
-function WeekSquares({ today, tracks, plans, starts, measures }: { today: string; tracks: Track[]; plans: Plan[]; starts: StartSession[]; measures: Measure[] }) {
+function WeekSquares({
+  today,
+  tracks,
+  plans,
+  starts,
+  measures,
+  routineDays,
+}: {
+  today: string;
+  tracks: Track[];
+  plans: Plan[];
+  starts: StartSession[];
+  measures: Measure[];
+  routineDays: RoutineDay[];
+}) {
   const [offset, setOffset] = useState(0);
   const dates = weekDates(today, offset);
-  const sq = weekSquares(plans, starts, dates);
+  const sq = weekSquares(plans, starts, dates, routineDays);
   const feel = weekFeel(plans, dates);
   const nights = plannedNights(plans, dates);
   const label = offset === 0 ? '今週' : offset === -1 ? '先週' : `${-offset}週まえ`;
@@ -568,6 +588,81 @@ function GapRecords({ plans, routines, view, today, nowMin }: { plans: Plan[]; r
         </>
       )}
       <span className="small muted">振り返りで印を付けた時間を数えます。計画のない日は数えません。</span>
+    </section>
+  );
+}
+
+/**
+ * いつもの固定（2026-11-10）：記録する固定のうち、取り組みにつないでいないもの（睡眠など）。
+ * 直近4週の毎日の長さの棒と、始まりの時刻の点。灰色系で、目標や比べる言葉は出さない
+ */
+function RoutineRecords({ routines, days, today }: { routines: Routine[]; days: RoutineDay[]; today: string }) {
+  const list = routines.filter((r) => r.record && !r.trackId).sort((a, b) => a.start - b.start);
+  if (!list.length) return null;
+  const dates: string[] = [];
+  for (let i = 27; i >= 0; i--) dates.push(addDays(today, -i));
+  return (
+    <section className="viz-card" aria-label="いつもの固定">
+      <span className="label">いつもの固定</span>
+      {list.map((r) => {
+        const mine = days.filter((d) => d.routineId === r.id);
+        const byDate = new Map(mine.map((d) => [d.date, d]));
+        const W = 320;
+        const H = 70;
+        const T = 56;
+        const pad = { l: 30, r: 4 };
+        const cw = (W - pad.l - pad.r) / dates.length;
+        const maxMin = Math.max(60, ...mine.map((d) => d.min));
+        const starts = mine.map((d) => d.start);
+        const s0 = starts.length ? Math.floor(Math.min(...starts) / 60) * 60 : r.start;
+        const s1 = starts.length ? Math.ceil(Math.max(...starts) / 60) * 60 : r.start + 60;
+        const span = Math.max(60, s1 - s0);
+        const avg = mine.length ? Math.round(mine.reduce((a, d) => a + d.min, 0) / mine.length) : 0;
+        const hm = (m: number) => `${Math.floor(m / 60) % 24}:${String(m % 60).padStart(2, '0')}`;
+        return (
+          <div key={r.id} className="stack" style={{ gap: 4 }}>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <b style={{ fontSize: 14 }}>{r.title}</b>
+              <span className="small muted">{mine.length ? `直近4週の平均 ${formatDuration(avg)}` : 'まだ記録がありません'}</span>
+            </div>
+            {mine.length > 0 && (
+              <svg viewBox={`0 0 ${W} ${H + T + 18}`} width="100%" role="img" aria-label={`${r.title}の直近4週の長さと始まりの時刻`} style={{ maxWidth: '100%' }}>
+                <text x={pad.l - 4} y={10} textAnchor="end" fontSize="9" fill="var(--muted)">
+                  {formatDuration(maxMin)}
+                </text>
+                <line x1={pad.l} x2={W - pad.r} y1={H} y2={H} stroke="var(--line-soft)" />
+                {dates.map((d, i) => {
+                  const x = byDate.get(d);
+                  if (!x) return null;
+                  const h = (x.min / maxMin) * (H - 6);
+                  return <rect key={d} x={pad.l + i * cw + 1} y={H - h} width={Math.max(2, cw - 2)} height={h} rx="1.5" fill={d === today ? '#4b5360' : '#9aa3ae'} />;
+                })}
+                <text x={pad.l - 4} y={H + 12} textAnchor="end" fontSize="9" fill="var(--muted)">
+                  {hm(s0)}
+                </text>
+                <text x={pad.l - 4} y={H + T} textAnchor="end" fontSize="9" fill="var(--muted)">
+                  {hm(s0 + span)}
+                </text>
+                <line x1={pad.l} x2={W - pad.r} y1={H + 8} y2={H + 8} stroke="var(--line-soft)" strokeDasharray="2 3" />
+                <line x1={pad.l} x2={W - pad.r} y1={H + T - 4} y2={H + T - 4} stroke="var(--line-soft)" strokeDasharray="2 3" />
+                {dates.map((d, i) => {
+                  const x = byDate.get(d);
+                  if (!x) return null;
+                  const cy = H + 8 + ((x.start - s0) / span) * (T - 12);
+                  return <circle key={`s-${d}`} cx={pad.l + i * cw + cw / 2} cy={cy} r="2.6" fill="#4b5360" />;
+                })}
+                <text x={pad.l} y={H + T + 14} fontSize="9" fill="var(--muted)">
+                  {shortDate(dates[0])}
+                </text>
+                <text x={W - pad.r} y={H + T + 14} textAnchor="end" fontSize="9" fill="var(--muted)">
+                  今日
+                </text>
+              </svg>
+            )}
+          </div>
+        );
+      })}
+      <span className="small muted">上の棒が毎日の長さ、下の点が始まりの時刻です。予定どおりやったとみなして数え、その日に動かした時刻・外した日はそのとおりに残ります。</span>
     </section>
   );
 }

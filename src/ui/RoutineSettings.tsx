@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useLive } from '../hooks';
 import { DEFAULT_VIEW, formatDuration, formatMinute } from '../lib/calendar';
 import { addRoutine, deleteRoutine, setCalendarView, updateRoutine } from '../lib/calendarActions';
+import { now } from '../lib/clock';
 import { db, getMeta } from '../lib/db';
+import { lifeDate } from '../lib/lifeDate';
 import type { Routine } from '../lib/types';
 import { EndSelect, formatEnd, TimeSelect } from './common';
 
@@ -64,6 +66,8 @@ function DaysPicker({ days, onChange }: { days: number[]; onChange: (d: number[]
 
 function RoutineRow({ r }: { r: Routine }) {
   const [open, setOpen] = useState(false);
+  const habits = useLive(async () => (await db.tracks.toArray()).filter((t) => t.type === 'habit' && !t.archivedAt), []);
+  const linked = habits?.find((t) => t.id === r.trackId);
   const [title, setTitle] = useState(r.title);
   const label = r.days.length === 7 ? '毎日' : r.days.length === 5 && [1, 2, 3, 4, 5].every((d) => r.days.includes(d)) ? '平日' : r.days.length === 2 && r.days.includes(0) && r.days.includes(6) ? '休日' : ORDER.filter((d) => r.days.includes(d)).map((d) => WD[d]).join('');
   return (
@@ -72,6 +76,7 @@ function RoutineRow({ r }: { r: Routine }) {
         <b>{r.title}</b>
         <span className="small muted mono">
           {formatMinute(r.start)}–{formatEnd(r.start + r.min)}・{label || '曜日なし'}
+          {r.record || r.trackId ? '・記録' : ''}
         </span>
       </button>
       {open && (
@@ -86,6 +91,43 @@ function RoutineRow({ r }: { r: Routine }) {
             <EndSelect start={r.start} value={r.start + r.min} onChange={(end) => updateRoutine(r.id, { min: end - r.start })} />
           </div>
           <DaysPicker days={r.days} onChange={(d) => updateRoutine(r.id, { days: d })} />
+          {/* 記録する（2026-11-10）：予定どおりやったとみなして、その日の時刻と長さを残す。オンにした日から数える */}
+          <label className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+            <input
+              type="checkbox"
+              style={{ marginTop: 4 }}
+              checked={!!(r.record || r.trackId)}
+              onChange={(e) =>
+                updateRoutine(r.id, e.target.checked ? { record: true, recordFrom: r.recordFrom ?? lifeDate(now()) } : { record: false, trackId: undefined })
+              }
+            />
+            <span className="stack" style={{ gap: 2 }}>
+              <span>記録する</span>
+              <span className="small muted">予定どおりやったとみなして、毎日の時刻と長さを残します。違った日はカレンダーで動かす、やらなかった日は「この日は外す」。</span>
+            </span>
+          </label>
+          {(r.record || r.trackId) && (
+            <label className="field">
+              <span>取り組みにつなぐ（習慣型）</span>
+              <select
+                className="input"
+                value={r.trackId ?? ''}
+                onChange={(e) => updateRoutine(r.id, { trackId: e.target.value || undefined, record: true, recordFrom: r.recordFrom ?? lifeDate(now()) })}
+              >
+                <option value="">つながない</option>
+                {(habits ?? []).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <span className="small muted">
+                {linked
+                  ? `「${linked.name}」の記録（今週の合計・8週の棒・7マス）として数えます。`
+                  : 'つながない固定は、記録タブの「いつもの固定」に出ます。習慣が固定になったときにつなぐと、その取り組みの記録が途切れません。'}
+              </span>
+            </label>
+          )}
           <button className="btn-ghost" style={{ alignSelf: 'flex-start', color: 'var(--warn)' }} onClick={() => deleteRoutine(r.id)}>
             このいつもの固定を削除
           </button>
