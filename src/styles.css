@@ -17,6 +17,8 @@
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
 * { box-sizing: border-box; }
+/* 端を越えたスクロールで伸びる動き（バウンス）を止める。下のタブや見出しが一緒に引っ張られていた（2026-11-10） */
+html, body { overscroll-behavior: none; }
 html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-text-size-adjust: 100%; }
 body { min-height: 100dvh; }
 button, input, select, textarea { font-family: inherit; font-size: 16px; color: inherit; }
@@ -186,7 +188,7 @@ a.btn { display: flex; align-items: center; justify-content: center; text-decora
 .cal-handle i { width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid var(--text); }
 .cal-grid.dragging .cal-handle { display: none; }
 .cal-bubble { position: absolute; right: 4px; top: -26px; background: var(--card-strong); color: #fff; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; font-family: var(--mono); white-space: nowrap; z-index: 8; }
-.cal-now { position: absolute; left: -6px; right: 0; display: flex; align-items: center; gap: 4px; z-index: 9; pointer-events: none; }
+.cal-now { position: absolute; left: -6px; right: 0; display: flex; align-items: center; gap: 4px; z-index: 9; pointer-events: none; transform: translateY(-50%); } /* 線の中心を「いま」の時刻にそろえる（ラベルの高さぶん下にずれていた。2026-11-10） */
 .cal-now i { width: 10px; height: 10px; border-radius: 50%; background: var(--next); flex: none; }
 .cal-now b { flex: 1; border-top: 2px solid var(--next); }
 .cal-now span { font-size: 10px; font-weight: 600; color: #fff; background: var(--next); border-radius: 6px; padding: 1px 6px; font-family: var(--mono); }
