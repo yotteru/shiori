@@ -113,7 +113,7 @@ describe('端末間の同期', () => {
 
   it('iPhone で A に済、iPad で B に済をつけても、両方残る', async () => {
     const { server, phone, pad } = await pair();
-    await markDone('2026-11-08', 'A', '次は配管から', phone);
+    await markDone('2026-11-08', 'A', '次は配管から', phone, undefined, true); // ステップも完了（2026-11-10 から済だけでは完了しない）
     await settle();
     await markDone('2026-11-08', 'B', '', pad);
     await settle();
