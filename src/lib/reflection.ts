@@ -42,7 +42,7 @@ export function timeline(
       const done = (plan?.items ?? []).filter((it) => it.status === 'done').map((it) => ({ trackId: it.trackId, title: it.title, ...(it.feel ? { feel: it.feel } : {}) }));
       const changes = input.changes.filter((c) => c.lifeDate === date);
       const measures = input.measures.filter((m) => m.lifeDate === date);
-      if (journal || done.length || changes.length || measures.length) days.push({ date, journal, done, changes, measures });
+      if (journal || done.length || changes.length || measures.length || plan?.gapLabels?.length) days.push({ date, journal, done, changes, measures });
     }
     out.push({ monday, days });
   }
