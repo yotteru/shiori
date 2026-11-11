@@ -111,3 +111,17 @@ describe('始める瞬間の対策（きっかけ・前の晩の準備）', () =
     expect((await d.plans.get('2026-11-09'))!.prep).toBeUndefined();
   });
 });
+
+describe('この日だけの予定を直す（2026-11-11）', () => {
+  it('名前と時刻を直せる。終日にも、終日から時刻つきにも', async () => {
+    const { addExtraFixed, updateExtraFixed } = await import('./calendarActions');
+    const d = fresh();
+    const id = await addExtraFixed('2026-11-12', '歯医者', 600, 60, 'night', d);
+    await updateExtraFixed('2026-11-12', id, { title: '歯医者（再診）', allDay: false, start: 660, min: 90 }, d);
+    expect((await d.plans.get('2026-11-12'))?.extraFixed).toEqual([{ id, title: '歯医者（再診）', start: 660, min: 90 }]);
+    await updateExtraFixed('2026-11-12', id, { title: '出張', allDay: true, start: 0, min: 0 }, d);
+    expect((await d.plans.get('2026-11-12'))?.extraFixed).toEqual([{ id, title: '出張', start: 0, min: 1440, allDay: true }]);
+    await updateExtraFixed('2026-11-12', id, { title: '出張', allDay: false, start: 540, min: 120 }, d);
+    expect((await d.plans.get('2026-11-12'))?.extraFixed).toEqual([{ id, title: '出張', start: 540, min: 120 }]);
+  });
+});
