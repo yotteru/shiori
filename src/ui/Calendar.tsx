@@ -150,6 +150,15 @@ export function Calendar({
     }
   };
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
+  // ドラッグ中は、指の動きで画面がスクロールしないようにする（2026-11-11）。
+  // touch-action: none だけでは iPhone で画面も一緒に動くことがあったため、touchmove を止める
+  useEffect(() => {
+    const stop = (e: TouchEvent) => {
+      if (drag.current) e.preventDefault();
+    };
+    document.addEventListener('touchmove', stop, { passive: false });
+    return () => document.removeEventListener('touchmove', stop);
+  }, []);
 
   // ---- タップ ----
   const tapGrid = (e: React.MouseEvent) => {

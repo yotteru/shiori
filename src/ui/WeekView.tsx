@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { fixedBlocksFor, formatDuration, formatMinute } from '../lib/calendar';
-import { addAllDayFixed, addExtraFixed, removeExtraFixed, setHoliday, toggleIntent } from '../lib/calendarActions';
+import { addAllDayFixed, addExtraFixed, removeExtraFixed, setHoliday, toggleIntent, updateExtraFixed } from '../lib/calendarActions';
 import { formatLifeDateJa, weekday } from '../lib/lifeDate';
-import type { Plan, Track } from '../lib/types';
+import type { ExtraFixed, Plan, Track } from '../lib/types';
 import { allDayEvents, allocation, freeMinutes, isHoliday } from '../lib/week';
 import { EndSelect, formatEnd, Sheet } from './common';
 
@@ -305,15 +305,7 @@ export function DaySheet({
           いつもの固定：{routineBlocks.length ? routineBlocks.map((f) => `${f.title} ${formatMinute(f.start)}–${formatMinute(f.start + f.min)}`).join('・') : 'なし'}
         </span>
         {extras.map((x) => (
-          <div key={x.id} className="row" style={{ justifyContent: 'space-between' }}>
-            <span>
-              <b>{x.title}</b>{' '}
-              <span className="small muted mono">{x.allDay ? '終日' : `${formatMinute(x.start)}–${formatEnd(x.start + x.min)}`}</span>
-            </span>
-            <button className="btn-ghost" aria-label={`${x.title}を消す`} onClick={() => removeExtraFixed(date, x.id)}>
-              ✕
-            </button>
-          </div>
+          <ExtraRow key={x.id} date={date} x={x} starts={starts} />
         ))}
         <input className="input" value={title} placeholder="例：歯医者、飲み会、出張" aria-label="予定の名前" onChange={(e) => setTitle(e.target.value)} />
         <label className="row" style={{ gap: 8, alignItems: 'center' }}>
@@ -369,5 +361,82 @@ export function DaySheet({
         閉じる
       </button>
     </Sheet>
+  );
+}
+
+/** 決まっている予定の1行：タップで直せる（名前・時刻・終日。2026-11-11）。✕で消す */
+function ExtraRow({ date, x, starts }: { date: string; x: ExtraFixed; starts: number[] }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(x.title);
+  const [allDay, setAllDay] = useState(!!x.allDay);
+  const [start, setStart] = useState(x.allDay ? 10 * 60 : x.start);
+  const [end, setEnd] = useState(x.allDay ? 11 * 60 : x.start + x.min);
+  if (!editing) {
+    return (
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <button
+          className="row"
+          style={{ border: 0, background: 'transparent', padding: 0, minHeight: 40, textAlign: 'left', flex: 1, minWidth: 0, gap: 6 }}
+          aria-label={`${x.title}を直す`}
+          onClick={() => setEditing(true)}
+        >
+          <b>{x.title}</b>
+          <span className="small muted mono">{x.allDay ? '終日' : `${formatMinute(x.start)}–${formatEnd(x.start + x.min)}`}</span>
+          <span className="small muted" style={{ marginLeft: 'auto' }}>
+            直す
+          </span>
+        </button>
+        <button className="btn-ghost" aria-label={`${x.title}を消す`} onClick={() => removeExtraFixed(date, x.id)}>
+          ✕
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="stack" style={{ gap: 8, border: '1px solid var(--line-soft)', borderRadius: 10, padding: 10 }}>
+      <input className="input" value={title} aria-label="予定の名前" onChange={(e) => setTitle(e.target.value)} />
+      <label className="row" style={{ gap: 8, alignItems: 'center' }}>
+        <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+        <span>終日</span>
+      </label>
+      {!allDay && (
+        <div className="row">
+          <select
+            className="select"
+            aria-label="開始"
+            value={start}
+            onChange={(e) => {
+              const s = Number(e.target.value);
+              setStart(s);
+              if (end < s + 30) setEnd(Math.min(24 * 60, s + 60));
+            }}
+          >
+            {starts.map((m) => (
+              <option key={m} value={m}>
+                {formatMinute(m)}
+              </option>
+            ))}
+          </select>
+          <span className="small muted">〜</span>
+          <EndSelect start={start} value={end} onChange={setEnd} />
+        </div>
+      )}
+      <div className="cal-two">
+        <button className="btn" onClick={() => setEditing(false)}>
+          やめる
+        </button>
+        <button
+          className="btn-primary"
+          style={{ minHeight: 44 }}
+          disabled={!title.trim()}
+          onClick={async () => {
+            await updateExtraFixed(date, x.id, { title: title.trim(), allDay, start, min: Math.max(30, end - start) });
+            setEditing(false);
+          }}
+        >
+          保存
+        </button>
+      </div>
+    </div>
   );
 }

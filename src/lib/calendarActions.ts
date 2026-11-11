@@ -200,6 +200,28 @@ export async function moveExtraFixed(lifeDate: string, id: string, start: number
   await editPlan(lifeDate, 'night', (p) => ({ ...p, extraFixed: (p.extraFixed ?? []).map((x) => (x.id === id ? { ...x, start, min } : x)) }), database);
 }
 
+/** この日だけの予定を直す（名前・時刻・終日。週の日のシートから。2026-11-11） */
+export async function updateExtraFixed(
+  lifeDate: string,
+  id: string,
+  patch: { title: string; allDay: boolean; start: number; min: number },
+  database: ShioriDB = db,
+) {
+  await editPlan(
+    lifeDate,
+    'night',
+    (p) => ({
+      ...p,
+      extraFixed: (p.extraFixed ?? []).map((x) => {
+        if (x.id !== id) return x;
+        if (patch.allDay) return { id: x.id, title: patch.title, start: 0, min: 1440, allDay: true };
+        return { id: x.id, title: patch.title, start: patch.start, min: patch.min };
+      }),
+    }),
+    database,
+  );
+}
+
 export async function removeExtraFixed(lifeDate: string, id: string, database: ShioriDB = db) {
   await editPlan(lifeDate, 'night', (p) => ({ ...p, extraFixed: (p.extraFixed ?? []).filter((x) => x.id !== id) }), database);
 }
